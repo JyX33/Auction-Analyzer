@@ -97,6 +97,35 @@ project_root/
 - Initial project setup
 - Documentation structure created
 - Basic architecture defined
+- Development environment preparation started
+- Project structure being initialized:
+  ```
+  project_root/
+  ├── src/
+  │   ├── extractor/
+  │   │   ├── __init__.py
+  │   │   ├── api_client.py
+  │   │   ├── rate_limiter.py
+  │   │   └── main.py
+  │   ├── database/
+  │   │   ├── __init__.py
+  │   │   ├── models.py
+  │   │   ├── schema.py
+  │   │   └── operations.py
+  │   └── api/
+  │       ├── __init__.py
+  │       ├── main.py
+  │       ├── routes/
+  │       └── models.py
+  ├── tests/
+  │   ├── __init__.py
+  │   ├── test_extractor/
+  │   ├── test_database/
+  │   └── test_api/
+  ├── docs/
+  ├── aider_docs/
+  └── output/
+  ```
 
 ## Development Guidelines
 

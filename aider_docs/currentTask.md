@@ -29,9 +29,21 @@ Reference to projectRoadmap.md: Phase 1 - Data Extraction
 
 2. Begin implementation preparation
    - [ ] Set up development environment
+     - [ ] Create virtual environment
+     - [ ] Install required dependencies
+     - [ ] Configure development tools
    - [ ] Configure Blizzard API access
+     - [ ] Create Blizzard developer account
+     - [ ] Generate API credentials
+     - [ ] Store credentials securely
    - [ ] Initialize SQLite database
+     - [ ] Create database schema
+     - [ ] Set up migrations
+     - [ ] Implement basic queries
    - [ ] Create basic project structure
+     - [ ] Set up src/ directory structure
+     - [ ] Create initial module files
+     - [ ] Configure testing environment
 
 ### Upcoming Tasks
 
