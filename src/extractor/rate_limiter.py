@@ -1,5 +1,7 @@
 import asyncio
 import time
+import random
+import logging
 import httpx
 from typing import Optional, AsyncIterator
 from contextlib import asynccontextmanager
@@ -10,6 +12,8 @@ class RateLimiter:
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.last_request: Optional[float] = None
         self.min_interval = 1.0 / req_per_second
+        self.remaining_requests = req_per_second
+        self.reset_time: Optional[float] = None
 
     @asynccontextmanager
     async def throttle(self):
@@ -28,20 +32,47 @@ class RateLimiter:
                 self.last_request = time.monotonic()
 
     async def execute_with_retry(self, coro, max_retries: int = 3):
-        """Execute a request with exponential backoff retry logic"""
+        """Execute request with Blizzard-specific rate limit handling"""
         retry_delay = 1.0
         for attempt in range(max_retries + 1):
             try:
                 async with self.throttle():
-                    return await coro
-            except Exception as e:
-                if attempt == max_retries or not self.is_retryable(e):
+                    response = await coro
+                    self._update_limits_from_headers(response.headers)
+                    return response
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429:
+                    retry_after = e.response.headers.get("Retry-After", "1")
+                    retry_delay = float(retry_after) + 0.5  # Add buffer
+                    logging.warning(f"Rate limited. Retrying in {retry_delay}s")
+                elif not self.is_retryable(e):
                     raise
+                
+                if attempt == max_retries:
+                    raise
+                    
                 await asyncio.sleep(retry_delay)
-                retry_delay *= 2
+                retry_delay *= 1.5  # Exponential backoff
+                retry_delay += random.uniform(0, 0.1)  # Add jitter
 
     def is_retryable(self, error: Exception) -> bool:
         """Determine if a request should be retried based on Blizzard API error codes"""
         if isinstance(error, httpx.HTTPStatusError):
             return error.response.status_code in {429, 500, 502, 503, 504}
         return False
+
+    def _update_limits_from_headers(self, headers: dict):
+        """Parse Blizzard rate limit headers and adjust limits"""
+        limit = int(headers.get("x-account-ratelimit-limit", 100))
+        remaining = int(headers.get("x-account-ratelimit-remaining", limit))
+        reset_seconds = int(headers.get("x-account-ratelimit-reset", 1))
+        
+        self.remaining_requests = remaining
+        self.reset_time = time.monotonic() + reset_seconds
+        
+        # Dynamically adjust rate limiting parameters
+        self.min_interval = max(1.0 / limit, 0.01)  # At least 10ms between requests
+        
+        if remaining < 5:  # Add buffer when approaching limit
+            self.min_interval *= 1.2
+            logging.warning(f"Rate limit buffer activated. {remaining} requests remaining")

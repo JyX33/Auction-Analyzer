@@ -58,27 +58,47 @@ class ItemExtractor:
         }
 
     async def process_batch(self, session: AsyncSession, item_ids: List[int]):
-        """Process a batch of item IDs"""
+        """Process batch with detailed error tracking and retries"""
+        failed_items = []
         async with httpx.AsyncClient() as client:
-            tasks = [
-                self.process_single_item(client, item_id, session)
-                for item_id in item_ids
-            ]
-            await asyncio.gather(*tasks)
+            results = await asyncio.gather(
+                *[self.process_single_item(client, item_id, session) 
+                  for item_id in item_ids],
+                return_exceptions=True
+            )
+            
+            # Process results and collect failures
+            for item_id, result in zip(item_ids, results):
+                if isinstance(result, Exception):
+                    logging.warning(f"Failed item {item_id}: {str(result)}")
+                    failed_items.append(item_id)
+                    self.stats["retries"] += 1
+
+        # Retry failed items once
+        if failed_items:
+            logging.info(f"Retrying {len(failed_items)} failed items")
+            async with httpx.AsyncClient() as client:
+                await asyncio.gather(
+                    *[self.process_single_item(client, item_id, session)
+                      for item_id in failed_items]
+                )
 
     async def process_single_item(
         self, client: httpx.AsyncClient, item_id: int, session: AsyncSession
     ):
-        """Process individual item with error handling"""
+        """Process item with transaction management"""
         self.stats["processed"] += 1
         try:
-            raw_data = await self.fetch_item(client, item_id)
-            item_data = self.transform_item(raw_data)
-            await upsert_items(session, [item_data])
-            self.stats["succeeded"] += 1
+            async with session.begin_nested():  # Use nested transaction
+                raw_data = await self.fetch_item(client, item_id)
+                item_data = self.transform_item(raw_data)
+                await upsert_items(session, [item_data])
+                self.stats["succeeded"] += 1
+                return item_id
         except Exception as e:
             self.stats["failed"] += 1
-            logging.error(f"Failed to process item {item_id}: {str(e)}")
+            logging.error(f"Item {item_id} error: {str(e)}")
+            raise  # Re-raise to be caught in process_batch
 
     def generate_report(self):
         """Generate extraction report in output/ directory"""
@@ -102,18 +122,21 @@ class ItemExtractor:
 
 
 async def main(item_ids: List[int], session: AsyncSession):
-    """Main entry point for the extraction process"""
+    """Main entry point with proper transaction handling"""
     extractor = ItemExtractor()
     await extractor.authenticate()
 
     try:
-        batch_size = 100
-        for i in range(0, len(item_ids), batch_size):
-            batch = item_ids[i: i + batch_size]
-            await extractor.process_batch(session, batch)
+        async with session.begin():  # Single transaction for all batches
+            batch_size = 100
+            for i in range(0, len(item_ids), batch_size):
+                batch = item_ids[i:i + batch_size]
+                await extractor.process_batch(session, batch)
 
         extractor.generate_report()
         return True
     except Exception as e:
-        logging.error(f"Fatal error during extraction: {str(e)}")
+        await session.rollback()
+        logging.critical(f"Extraction aborted: {str(e)}")
+        extractor.generate_report()
         return False
