@@ -99,6 +99,7 @@ project_root/
 - Basic architecture defined
 - Development environment preparation started
 - Project structure being initialized:
+
   ```
   project_root/
   ├── src/
