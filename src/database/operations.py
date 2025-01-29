@@ -111,7 +111,7 @@ async def add_item_to_group(
         return None
 
 async def upsert_items(session: AsyncSession, items: List[dict]):
-    """Batch upsert items with optimized conflict handling"""
+    """Batch upsert items without transaction management"""
     try:
         stmt = (
             sqlite_upsert(Item)
@@ -138,7 +138,7 @@ async def upsert_items(session: AsyncSession, items: List[dict]):
         return True
         
     except SQLAlchemyError as e:
-        logger.error(f"Batch upsert failed: {str(e)}")
+        logging.error(f"Batch upsert failed: {str(e)}")
         raise RuntimeError(f"Database error: {str(e)}") from e
 
 async def item_exists(session: AsyncSession, item_id: int) -> bool:

@@ -38,7 +38,8 @@ class ItemExtractor:
     async def process_batch(self, session: AsyncSession, item_ids: List[int]):
         """Process batch with proper transaction scope"""
         try:
-            async with session.begin():  # Single transaction per batch
+            # Single transaction for the entire batch
+            async with session.begin_nested():  # Use nested transaction for batch
                 tasks = [self.process_single_item(item_id, session) 
                         for item_id in item_ids]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -107,12 +108,14 @@ class ItemExtractor:
 async def main(item_ids: List[int], session: AsyncSession):
     """Main entry point with proper transaction handling"""
     extractor = ItemExtractor()
+    await extractor.client.authenticate(extractor.client._client)
 
     try:
-        async with session.begin():  # Single transaction for all batches
-            batch_size = 100
-            for i in range(0, len(item_ids), batch_size):
-                batch = item_ids[i:i + batch_size]
+        batch_size = 100
+        for i in range(0, len(item_ids), batch_size):
+            batch = item_ids[i:i + batch_size]
+            # Each batch gets its own transaction
+            async with session.begin():
                 await extractor.process_batch(session, batch)
 
         extractor.generate_report()
