@@ -111,35 +111,23 @@ async def add_item_to_group(
         return None
 
 async def upsert_items(session: AsyncSession, items: List[dict]):
-    """Batch upsert items without transaction management"""
-    try:
-        stmt = (
-            sqlite_upsert(Item)
-            .values(items)
-            .on_conflict_do_update(
-                index_elements=[Item.item_id],
-                set_={
-                    "item_class_id": bindparam("item_class_id"),
-                    "item_class_name": bindparam("item_class_name"),
-                    "item_subclass_id": bindparam("item_subclass_id"),
-                    "item_subclass_name": bindparam("item_subclass_name"),
-                    "display_subclass_name": bindparam("display_subclass_name"),
-                    "item_name": bindparam("item_name")
-                }
-            )
+    """Batch upsert items"""
+    stmt = (
+        sqlite_upsert(Item)
+        .values(items)
+        .on_conflict_do_update(
+            index_elements=[Item.item_id],
+            set_={
+                "item_class_id": bindparam("item_class_id"),
+                "item_class_name": bindparam("item_class_name"),
+                "item_subclass_id": bindparam("item_subclass_id"),
+                "item_subclass_name": bindparam("item_subclass_name"),
+                "display_subclass_name": bindparam("display_subclass_name"),
+                "item_name": bindparam("item_name")
+            }
         )
-        
-        # Execute in batches without explicit commit
-        batch_size = 1000
-        for i in range(0, len(items), batch_size):
-            batch = items[i:i + batch_size]
-            await session.execute(stmt, batch)
-            
-        return True
-        
-    except SQLAlchemyError as e:
-        logging.error(f"Batch upsert failed: {str(e)}")
-        raise RuntimeError(f"Database error: {str(e)}") from e
+    )
+    await session.execute(stmt, items)
 
 async def item_exists(session: AsyncSession, item_id: int) -> bool:
     """Check if an item exists in the database"""

@@ -1,11 +1,15 @@
-import httpx
 import logging
-from typing import Optional, AsyncIterator
 from contextlib import asynccontextmanager
+from typing import AsyncIterator, Optional
+
+import httpx
+
 from .rate_limiter import RateLimiter
+
 
 class BlizzardAPIClient:
     """Dedicated client for Blizzard API interactions"""
+
     def __init__(self, client_id: str, client_secret: str):
         self.client_id = client_id
         self.client_secret = client_secret
@@ -39,8 +43,14 @@ class BlizzardAPIClient:
 
     async def fetch_item(self, item_id: int) -> dict:
         """Fetch item data with retry logic"""
-        url = f"{self.base_url}/search/item?id={item_id}"
-        return await self._request("GET", url)
+        url = f"{self.base_url}/item/{item_id}?namespace=static-eu&locale=en_US"
+        try:
+            response = await self._request("GET", url)
+            return {"results": [{"data": response}]}  # Match expected format
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return {"results": []}  # Return empty results for non-existent items
+            raise
 
     async def _request(self, method: str, url: str, **kwargs) -> dict:
         """Execute API request with rate limiting and error handling"""
@@ -57,5 +67,7 @@ class BlizzardAPIClient:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
-            logging.error(f"API request failed: {e.response.status_code} {e.response.text}")
+            logging.error(
+                f"API request failed: {e.response.status_code} {e.response.text}"
+            )
             raise
