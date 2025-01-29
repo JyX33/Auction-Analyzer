@@ -5,14 +5,15 @@
 ### 1. Data Extraction Component
 
 - **Purpose:** Fetch item data from Blizzard API
-- **Key Files:** (To be implemented)
-  - `extractor/main.py`: Main extraction script
-  - `extractor/api_client.py`: Blizzard API client
-  - `extractor/rate_limiter.py`: Rate limiting logic
-- **Interactions:**
-  - Communicates with Blizzard API
-  - Writes data to SQLite database
-  - Generates extraction reports
+- **Implemented Features:**
+  - OAuth authentication flow
+  - Concurrent request processing
+  - Data transformation pipeline
+  - Error recovery mechanisms
+- **Key Interactions:**
+  - Uses RateLimiter for API call management
+  - Integrates with database operations
+  - Generates Markdown/JSON reports
 
 ### 2. Database Layer
 
@@ -92,17 +93,18 @@ project_root/
 
 ## Recent Changes
 
-- Added database models with proper relationships
-  - Implemented Item, Group, and ItemGroup models
-  - Added index for common query patterns (item_class_id + item_subclass_id)
-- Enhanced RateLimiter implementation:
-  - Monotonic clock for precise timing
-  - Blizzard-specific error handling
-  - Combined concurrency and rate limiting
-- Established core project structure:
-  - Completed database model layer
-  - Basic extraction scaffolding
-  - API endpoint placeholders
+- Completed database initialization system
+  - Async-aware migration setup
+  - Alembic integration
+  - Environment-based configuration
+- Implemented core extraction workflow:
+  - Batch processing with error recovery
+  - Transaction-aware database operations
+  - Detailed statistics tracking
+- Enhanced rate limiting:
+  - Header-based rate limit detection
+  - Adaptive concurrency control
+  - Retry tracking in reports
 
   ```
   project_root/
