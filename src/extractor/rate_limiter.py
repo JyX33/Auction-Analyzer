@@ -1,5 +1,6 @@
 import asyncio
 import time
+import httpx
 from typing import Optional, AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -14,16 +15,17 @@ class RateLimiter:
     async def throttle(self):
         """Context manager for rate-limited API calls"""
         async with self.semaphore:
+            now = time.monotonic()
             if self.last_request is not None:
-                elapsed = time.time() - self.last_request
+                elapsed = now - self.last_request
                 if elapsed < self.min_interval:
                     await asyncio.sleep(self.min_interval - elapsed)
             
-            self.last_request = time.time()
+            self.last_request = now
             try:
                 yield
             finally:
-                self.last_request = time.time()
+                self.last_request = time.monotonic()
 
     async def execute_with_retry(self, coro, max_retries: int = 3):
         """Execute a request with exponential backoff retry logic"""
@@ -39,6 +41,7 @@ class RateLimiter:
                 retry_delay *= 2
 
     def is_retryable(self, error: Exception) -> bool:
-        """Determine if a request should be retried"""
-        # Implement based on Blizzard API error codes
-        return True
+        """Determine if a request should be retried based on Blizzard API error codes"""
+        if isinstance(error, httpx.HTTPStatusError):
+            return error.response.status_code in {429, 500, 502, 503, 504}
+        return False
