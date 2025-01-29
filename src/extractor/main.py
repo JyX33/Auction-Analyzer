@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import List
+from sqlalchemy.ext.asyncio import AsyncSession
 from .rate_limiter import RateLimiter
 from src.database.operations import upsert_items
 from src.database.models import Item
