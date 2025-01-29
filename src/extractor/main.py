@@ -11,38 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.operations import upsert_items
 
-from .rate_limiter import RateLimiter
+from .api_client import BlizzardAPIClient
 
 
 class ItemExtractor:
     def __init__(self):
-        self.client_id = os.getenv("BLIZZARD_CLIENT_ID")
-        self.client_secret = os.getenv("BLIZZARD_CLIENT_SECRET")
-        self.access_token = None
-        self.rate_limiter = RateLimiter()
-        self.base_url = "https://eu.api.blizzard.com/data/wow"
-        self.stats = {"processed": 0, "succeeded": 0, "failed": 0, "retries": 0}
-
-    async def authenticate(self):
-        """Obtain OAuth token from Blizzard API"""
-        auth_url = "https://oauth.battle.net/token"
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                auth_url,
-                auth=(self.client_id, self.client_secret),
-                data={"grant_type": "client_credentials"},
-            )
-            response.raise_for_status()
-            self.access_token = response.json()["access_token"]
-
-    async def fetch_item(self, client: httpx.AsyncClient, item_id: int) -> dict:
-        """Fetch item data from Blizzard API"""
-        url = f"{self.base_url}/search/item?id={item_id}"
-        response = await self.rate_limiter.execute_with_retry(
-            client.get(url, headers={"Authorization": f"Bearer {self.access_token}"})
+        self.client = BlizzardAPIClient(
+            os.getenv("BLIZZARD_CLIENT_ID"),
+            os.getenv("BLIZZARD_CLIENT_SECRET")
         )
-        response.raise_for_status()
-        return response.json()
+        self.stats = {"processed": 0, "succeeded": 0, "failed": 0, "retries": 0}
 
     def transform_item(self, raw_data: dict) -> dict:
         """Transform API response to database schema"""
@@ -60,9 +38,9 @@ class ItemExtractor:
     async def process_batch(self, session: AsyncSession, item_ids: List[int]):
         """Process batch with detailed error tracking and retries"""
         failed_items = []
-        async with httpx.AsyncClient() as client:
+        async with self.client.session() as api_client:
             results = await asyncio.gather(
-                *[self.process_single_item(client, item_id, session) 
+                *[self.process_single_item(item_id, session) 
                   for item_id in item_ids],
                 return_exceptions=True
             )
@@ -77,20 +55,18 @@ class ItemExtractor:
         # Retry failed items once
         if failed_items:
             logging.info(f"Retrying {len(failed_items)} failed items")
-            async with httpx.AsyncClient() as client:
+            async with self.client.session() as api_client:
                 await asyncio.gather(
-                    *[self.process_single_item(client, item_id, session)
+                    *[self.process_single_item(item_id, session)
                       for item_id in failed_items]
                 )
 
-    async def process_single_item(
-        self, client: httpx.AsyncClient, item_id: int, session: AsyncSession
-    ):
+    async def process_single_item(self, item_id: int, session: AsyncSession):
         """Process item with transaction management"""
         self.stats["processed"] += 1
         try:
             async with session.begin_nested():  # Use nested transaction
-                raw_data = await self.fetch_item(client, item_id)
+                raw_data = await self.client.fetch_item(item_id)
                 item_data = self.transform_item(raw_data)
                 await upsert_items(session, [item_data])
                 self.stats["succeeded"] += 1
@@ -124,7 +100,6 @@ class ItemExtractor:
 async def main(item_ids: List[int], session: AsyncSession):
     """Main entry point with proper transaction handling"""
     extractor = ItemExtractor()
-    await extractor.authenticate()
 
     try:
         async with session.begin():  # Single transaction for all batches
