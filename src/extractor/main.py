@@ -36,45 +36,52 @@ class ItemExtractor:
         }
 
     async def process_batch(self, session: AsyncSession, item_ids: List[int]):
-        """Process batch with detailed error tracking and retries"""
-        failed_items = []
-        async with self.client.session() as api_client:
-            results = await asyncio.gather(
-                *[self.process_single_item(item_id, session) 
-                  for item_id in item_ids],
-                return_exceptions=True
-            )
-            
-            # Process results and collect failures
-            for item_id, result in zip(item_ids, results):
-                if isinstance(result, Exception):
-                    logging.warning(f"Failed item {item_id}: {str(result)}")
-                    failed_items.append(item_id)
-                    self.stats["retries"] += 1
-
-        # Retry failed items once
-        if failed_items:
-            logging.info(f"Retrying {len(failed_items)} failed items")
-            async with self.client.session() as api_client:
-                await asyncio.gather(
-                    *[self.process_single_item(item_id, session)
-                      for item_id in failed_items]
-                )
+        """Process batch with proper transaction scope"""
+        try:
+            async with session.begin():  # Single transaction per batch
+                tasks = [self.process_single_item(item_id, session) 
+                        for item_id in item_ids]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Handle failed items
+                failed_items = [
+                    item_id for item_id, result in zip(item_ids, results)
+                    if isinstance(result, Exception)
+                ]
+                
+                if failed_items:
+                    logging.info(f"Retrying {len(failed_items)} failed items")
+                    retry_results = await asyncio.gather(
+                        *[self.process_single_item(item_id, session)
+                          for item_id in failed_items],
+                        return_exceptions=True
+                    )
+                    # Update stats based on retry results
+                    self.stats["succeeded"] += sum(
+                        1 for res in retry_results if not isinstance(res, Exception)
+                    )
+                    self.stats["failed"] += sum(
+                        1 for res in retry_results if isinstance(res, Exception)
+                    )
+                    
+            return True
+        except Exception as e:
+            logging.error(f"Batch processing failed: {str(e)}")
+            return False
 
     async def process_single_item(self, item_id: int, session: AsyncSession):
-        """Process item with transaction management"""
+        """Process item with proper session management"""
         self.stats["processed"] += 1
         try:
-            async with session.begin_nested():  # Use nested transaction
-                raw_data = await self.client.fetch_item(item_id)
-                item_data = self.transform_item(raw_data)
-                await upsert_items(session, [item_data])
-                self.stats["succeeded"] += 1
-                return item_id
+            raw_data = await self.client.fetch_item(item_id)
+            item_data = self.transform_item(raw_data)
+            await upsert_items(session, [item_data])
+            self.stats["succeeded"] += 1
+            return item_id
         except Exception as e:
             self.stats["failed"] += 1
             logging.error(f"Item {item_id} error: {str(e)}")
-            raise  # Re-raise to be caught in process_batch
+            raise
 
     def generate_report(self):
         """Generate extraction report in output/ directory"""

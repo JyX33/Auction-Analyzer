@@ -113,7 +113,6 @@ async def add_item_to_group(
 async def upsert_items(session: AsyncSession, items: List[dict]):
     """Batch upsert items with optimized conflict handling"""
     try:
-        # SQLAlchemy 2.0+ core style bulk upsert
         stmt = (
             sqlite_upsert(Item)
             .values(items)
@@ -130,18 +129,16 @@ async def upsert_items(session: AsyncSession, items: List[dict]):
             )
         )
         
-        # Batch in chunks to prevent parameter limits
+        # Execute in batches without explicit commit
         batch_size = 1000
         for i in range(0, len(items), batch_size):
             batch = items[i:i + batch_size]
             await session.execute(stmt, batch)
             
-        await session.commit()
         return True
         
     except SQLAlchemyError as e:
         logger.error(f"Batch upsert failed: {str(e)}")
-        await session.rollback()
         raise RuntimeError(f"Database error: {str(e)}") from e
 
 async def item_exists(session: AsyncSession, item_id: int) -> bool:
