@@ -2,52 +2,91 @@
 Database operations for managing item data.
 """
 
-from typing import List, Optional, Dict, Any
+import logging
+from typing import List, Optional, Dict, Any, AsyncIterator
+from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, exists
+from sqlalchemy import select, exists, insert, update, delete
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.dialects.sqlite import insert as sqlite_upsert
+from sqlalchemy.sql.expression import bindparam
 
 from .models import Item, Group, ItemGroup
+from .init_db import get_engine
+
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def get_session() -> AsyncIterator[AsyncSession]:
+    """Async context manager for database sessions"""
+    engine = await get_engine()
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception as e:
+            logger.error(f"Session rollback due to error: {str(e)}")
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 async def get_item_by_id(session: AsyncSession, item_id: int) -> Optional[Item]:
     """Retrieve an item by its ID."""
-    result = await session.execute(select(Item).where(Item.item_id == item_id))
-    return result.scalar_one_or_none()
+    try:
+        result = await session.execute(select(Item).where(Item.item_id == item_id))
+        return result.scalar_one_or_none()
+    except SQLAlchemyError as e:
+        logger.error(f"Failed to get item {item_id}: {str(e)}")
+        raise
 
 async def create_item(session: AsyncSession, item_data: Dict[str, Any]) -> Item:
     """Create a new item or update if exists."""
-    item = Item(**item_data)
     try:
-        session.add(item)
+        stmt = (
+            sqlite_upsert(Item)
+            .values(item_data)
+            .on_conflict_do_update(
+                index_elements=[Item.item_id],
+                set_=item_data
+            )
+        )
+        await session.execute(stmt)
         await session.commit()
-    except IntegrityError:
+        return await get_item_by_id(session, item_data['item_id'])
+    except SQLAlchemyError as e:
+        logger.error(f"Failed to create/update item: {str(e)}")
         await session.rollback()
-        existing = await get_item_by_id(session, item_data['item_id'])
-        if existing:
-            for key, value in item_data.items():
-                setattr(existing, key, value)
-            await session.commit()
-            return existing
-    return item
+        raise
 
 async def get_items(
     session: AsyncSession,
     page: int = 1,
-    page_size: int = 15,
-    item_class_name: Optional[str] = None,
-    item_subclass_name: Optional[str] = None
+    page_size: int = 100,
+    filters: Optional[Dict[str, Any]] = None
 ) -> List[Item]:
-    """Retrieve items with optional filtering and pagination."""
-    query = select(Item)
-    
-    if item_class_name:
-        query = query.where(Item.item_class_name == item_class_name)
-    if item_subclass_name:
-        query = query.where(Item.item_subclass_name == item_subclass_name)
-    
-    query = query.offset((page - 1) * page_size).limit(page_size)
-    result = await session.execute(query)
-    return result.scalars().all()
+    """Optimized item query with filtering and pagination"""
+    try:
+        query = select(Item)
+        
+        if filters:
+            if "item_class_id" in filters:
+                query = query.where(Item.item_class_id == filters["item_class_id"])
+            if "item_subclass_id" in filters:
+                query = query.where(Item.item_subclass_id == filters["item_subclass_id"])
+            if "item_class_name" in filters:
+                query = query.where(Item.item_class_name == filters["item_class_name"])
+            if "item_subclass_name" in filters:
+                query = query.where(Item.item_subclass_name == filters["item_subclass_name"])
+            if "group_id" in filters:
+                query = query.join(ItemGroup).where(ItemGroup.group_id == filters["group_id"])
+        
+        query = query.offset((page - 1) * page_size).limit(page_size)
+        result = await session.execute(query)
+        return result.scalars().all()
+    except SQLAlchemyError as e:
+        logger.error(f"Query failed: {str(e)}")
+        raise
 
 async def create_group(session: AsyncSession, group_name: str) -> Group:
     """Create a new group."""
@@ -71,25 +110,37 @@ async def add_item_to_group(
         await session.rollback()
         return None
 
-async def upsert_items(session: AsyncSession, items: list[dict]):
-    """Batch upsert items with conflict handling"""
+async def upsert_items(session: AsyncSession, items: List[dict]):
+    """Batch upsert items with optimized conflict handling"""
     try:
-        for item_data in items:
-            stmt = select(Item).where(Item.item_id == item_data["item_id"])
-            result = await session.execute(stmt)
-            existing = result.scalar_one_or_none()
-            
-            if existing:
-                # Update existing item
-                for key, value in item_data.items():
-                    setattr(existing, key, value)
-            else:
-                # Insert new item
-                session.add(Item(**item_data))
+        # SQLAlchemy 2.0+ core style bulk upsert
+        stmt = (
+            sqlite_upsert(Item)
+            .values(items)
+            .on_conflict_do_update(
+                index_elements=[Item.item_id],
+                set_={
+                    "item_class_id": bindparam("item_class_id"),
+                    "item_class_name": bindparam("item_class_name"),
+                    "item_subclass_id": bindparam("item_subclass_id"),
+                    "item_subclass_name": bindparam("item_subclass_name"),
+                    "display_subclass_name": bindparam("display_subclass_name"),
+                    "item_name": bindparam("item_name")
+                }
+            )
+        )
         
+        # Batch in chunks to prevent parameter limits
+        batch_size = 1000
+        for i in range(0, len(items), batch_size):
+            batch = items[i:i + batch_size]
+            await session.execute(stmt, batch)
+            
         await session.commit()
         return True
+        
     except SQLAlchemyError as e:
+        logger.error(f"Batch upsert failed: {str(e)}")
         await session.rollback()
         raise RuntimeError(f"Database error: {str(e)}") from e
 
