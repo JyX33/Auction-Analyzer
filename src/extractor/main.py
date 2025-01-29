@@ -8,7 +8,12 @@ from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.operations import upsert_items, upsert_connected_realm
+from src.database.operations import (
+    upsert_items,
+    upsert_connected_realm,
+    connected_realm_exists,
+    get_all_item_ids
+)
 from .api_client import BlizzardAPIClient
 
 class ItemExtractor:
@@ -24,7 +29,9 @@ class ItemExtractor:
             "retries": 0,
             "realms_processed": 0,
             "realms_succeeded": 0,
-            "realms_failed": 0
+            "realms_failed": 0,
+            "realms_skipped": 0,  # New stat for skipped realms
+            "items_skipped": 0    # New stat for skipped items
         }
 
     def transform_item(self, raw_data: dict) -> dict:
@@ -55,6 +62,13 @@ class ItemExtractor:
             for realm_id in realm_ids:
                 try:
                     self.stats["realms_processed"] += 1
+                    
+                    # Check if realm already exists and skip if it does
+                    if await connected_realm_exists(session, realm_id):
+                        logging.info(f"Skipping existing connected realm {realm_id}")
+                        self.stats["realms_skipped"] += 1
+                        continue
+
                     realm_data = await self.client.fetch_connected_realm_details(realm_id)
                     if realm_data:
                         realm_data["last_updated"] = datetime.utcnow()
@@ -73,15 +87,31 @@ class ItemExtractor:
     async def process_batch(self, session: AsyncSession, item_ids: List[int]):
         """Process batch of items"""
         try:
+            # Get all existing item IDs from the database
+            existing_items = await get_all_item_ids(session)
+            
+            # Filter out existing items efficiently using set operations
+            items_to_process = [item_id for item_id in item_ids if item_id not in existing_items]
+            skipped_items = [item_id for item_id in item_ids if item_id in existing_items]
+            
+            # Update stats for skipped items
+            for item_id in skipped_items:
+                logging.info(f"Skipping existing item {item_id}")
+                self.stats["items_skipped"] += 1
+
+            if not items_to_process:
+                logging.info("All items in batch already exist, skipping batch")
+                return True
+
             tasks = [
                 self.process_single_item(item_id, session)
-                for item_id in item_ids
+                for item_id in items_to_process
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             # Handle failed items
             failed_items = [
-                item_id for item_id, result in zip(item_ids, results)
+                item_id for item_id, result in zip(items_to_process, results)
                 if isinstance(result, Exception)
             ]
             
@@ -132,12 +162,14 @@ class ItemExtractor:
 - Total Items Processed: {self.stats['processed']}
 - Successful: {self.stats['succeeded']}
 - Failed: {self.stats['failed']}
+- Skipped (Already Exist): {self.stats['items_skipped']}
 - Retry Attempts: {self.stats['retries']}
 
 ## Connected Realms Summary
 - Total Realms Processed: {self.stats['realms_processed']}
 - Successful: {self.stats['realms_succeeded']}
 - Failed: {self.stats['realms_failed']}
+- Skipped (Already Exist): {self.stats['realms_skipped']}
         """
 
         with open(report_path, "w") as f:
@@ -150,20 +182,21 @@ async def main(item_ids: List[int], session: AsyncSession):
     try:
         # Create API client session first
         async with extractor.client.session():
-            # Process connected realms in one transaction
+            # Process all operations in a single transaction
             logging.info("Extracting connected realms data...")
-            async with session.begin():
-                realms_success = await extractor.extract_connected_realms(session)
+            realms_success = await extractor.extract_connected_realms(session)
             
             if not realms_success:
                 logging.error("Connected realms extraction failed")
+                return False
             
-            # Process items in batches, each batch in its own transaction
-            batch_size = 20
+            # Process items in batches with delay
+            batch_size = 50
             for i in range(0, len(item_ids), batch_size):
                 batch = item_ids[i:i + batch_size]
-                async with session.begin():
-                    await extractor.process_batch(session, batch)
+                await extractor.process_batch(session, batch)
+                if i + batch_size < len(item_ids):  # Don't delay after last batch
+                    await asyncio.sleep(1)  # 1000ms = 1s
 
             extractor.generate_report()
             return True

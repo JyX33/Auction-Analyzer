@@ -58,11 +58,14 @@ class BlizzardAPIClient:
         try:
             response = await self._request("GET", url)
             realms = []
-            for href in response.get("connected_realms", []):
+            for realm in response.get("connected_realms", []):
                 # Extract ID from href which looks like "https://.../data/wow/connected-realm/1234"
                 try:
                     # Handle both full URLs and relative paths
-                    parts = href.rstrip('/').split('/')
+                    href = realm.get("href", "")
+                    # Remove query parameters and trailing slashes
+                    clean_href = href.split('?')[0].rstrip('/')
+                    parts = clean_href.split('/')
                     realm_id = int(parts[-1])
                     realms.append(realm_id)
                 except (ValueError, IndexError) as e:
@@ -83,12 +86,33 @@ class BlizzardAPIClient:
         url = f"{self.base_url}/connected-realm/{realm_id}?namespace=dynamic-eu&locale=en_US"
         try:
             response = await self._request("GET", url)
+            # Extract realm data with safer access and handle both string and dict values
+            realms = response.get("realms", [])
+            if not realms:
+                logging.warning(f"No realms found for connected realm {realm_id}")
+                return None
+                
+            first_realm = realms[0]
+            
+            # Helper function to safely extract string values from potentially nested structures
+            def safe_extract(obj, *keys, default="Unknown"):
+                try:
+                    value = obj
+                    for key in keys:
+                        if isinstance(value, dict):
+                            value = value.get(key, default)
+                        else:
+                            return default
+                    return value
+                except Exception:
+                    return default
+            
             realm_data = {
                 "connected_realm_id": realm_id,
-                "name": response["realms"][0]["name"]["en_US"],  # Use first realm's name
-                "population_type": response["population"]["type"],
-                "realm_category": response["realms"][0]["category"],
-                "status": response["status"]["type"]
+                "name": safe_extract(first_realm, "name", "en_US"),
+                "population_type": safe_extract(response, "population", "type"),
+                "realm_category": safe_extract(first_realm, "category"),
+                "status": safe_extract(response, "status", "type")
             }
             return realm_data
         except httpx.HTTPStatusError as e:

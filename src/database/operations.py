@@ -156,11 +156,11 @@ async def upsert_connected_realm(session: AsyncSession, realm_data: Dict[str, An
             .on_conflict_do_update(
                 index_elements=[ConnectedRealm.connected_realm_id],
                 set_={
-                    "name": bindparam("name"),
-                    "population_type": bindparam("population_type"),
-                    "realm_category": bindparam("realm_category"),
-                    "status": bindparam("status"),
-                    "last_updated": bindparam("last_updated")
+                    "name": bindparam("_name", value=realm_data["name"]),
+                    "population_type": bindparam("_population_type", value=realm_data["population_type"]),
+                    "realm_category": bindparam("_realm_category", value=realm_data["realm_category"]),
+                    "status": bindparam("_status", value=realm_data["status"]),
+                    "last_updated": bindparam("_last_updated", value=realm_data["last_updated"])
                 }
             )
         )
@@ -185,6 +185,11 @@ async def get_connected_realms(
     except SQLAlchemyError as e:
         logger.error(f"Failed to get connected realms: {str(e)}")
         raise
+
+async def get_all_item_ids(session: AsyncSession) -> set[int]:
+    """Get all item IDs from the database."""
+    result = await session.execute(select(Item.item_id))
+    return set(row[0] for row in result.all())
 
 async def connected_realm_exists(session: AsyncSession, connected_realm_id: int) -> bool:
     """Check if a connected realm exists in the database."""
