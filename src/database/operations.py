@@ -4,8 +4,8 @@ Database operations for managing item data.
 
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert, delete
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, insert, delete, exists
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from .models import Item, Group, ItemGroup
 
@@ -70,3 +70,32 @@ async def add_item_to_group(
     except IntegrityError:
         await session.rollback()
         return None
+
+async def upsert_items(session: AsyncSession, items: list[dict]):
+    """Batch upsert items with conflict handling"""
+    try:
+        for item_data in items:
+            stmt = select(Item).where(Item.item_id == item_data["item_id"])
+            result = await session.execute(stmt)
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                # Update existing item
+                for key, value in item_data.items():
+                    setattr(existing, key, value)
+            else:
+                # Insert new item
+                session.add(Item(**item_data))
+        
+        await session.commit()
+        return True
+    except SQLAlchemyError as e:
+        await session.rollback()
+        raise RuntimeError(f"Database error: {str(e)}") from e
+
+async def item_exists(session: AsyncSession, item_id: int) -> bool:
+    """Check if an item exists in the database"""
+    result = await session.execute(
+        select(exists().where(Item.item_id == item_id))
+    )
+    return result.scalar()
