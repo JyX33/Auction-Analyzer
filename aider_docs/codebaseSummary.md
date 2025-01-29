@@ -6,14 +6,15 @@
 
 - **Purpose:** Fetch item data from Blizzard API
 - **Implemented Features:**
-  - OAuth authentication flow
-  - Concurrent request processing
+  - OAuth authentication with token management
+  - Concurrent requests with semaphore control
   - Data transformation pipeline
-  - Error recovery mechanisms
+  - Nested transaction handling
+  - Automatic report generation (Markdown/JSON)
 - **Key Interactions:**
   - Uses RateLimiter for API call management
-  - Integrates with database operations
-  - Generates Markdown/JSON reports
+  - Integrates with SQLAlchemy async sessions
+  - Generates timestamped output reports
 
 ### 2. Database Layer
 
@@ -92,19 +93,19 @@ project_root/
 ```
 
 ## Recent Changes
-
-- Completed database initialization system
-  - Async-aware migration setup
-  - Alembic integration
-  - Environment-based configuration
-- Implemented core extraction workflow:
-  - Batch processing with error recovery
-  - Transaction-aware database operations
-  - Detailed statistics tracking
+- Completed core extraction workflow implementation:
+  - Nested transactions for individual items
+  - Exponential backoff with jitter in retries
+  - Atomic batch processing with rollback
+  - Detailed error tracking in reports
 - Enhanced rate limiting:
-  - Header-based rate limit detection
-  - Adaptive concurrency control
-  - Retry tracking in reports
+  - Blizzard header-aware rate limiting
+  - Dynamic concurrency adjustment
+  - Header parsing for limit tracking
+- Database improvements:
+  - Async schema initialization
+  - Environment-based configuration
+  - Proper connection pooling
 
   ```
   project_root/

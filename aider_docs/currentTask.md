@@ -29,27 +29,27 @@ Reference to projectRoadmap.md: Phase 1 - Data Extraction
 2. Finalize rate limiting implementation
    - [x] Basic concurrency control
    - [x] Retry logic framework
-   - [ ] Implement Blizzard-specific rate limit headers
+   - [x] Implement Blizzard-specific rate limit headers
 
 3. Prepare data extraction workflow
    - [x] Connect API client to database
    - [x] Implement batch processing
-   - [ ] Create error recovery mechanisms
+   - [x] Create error recovery mechanisms
 
 ### Completed Tasks
 
-- Full database initialization flow:
+- Full extraction error handling:
+  - Nested transactions
+  - Retry mechanisms
+  - Error classification
+- Rate limiter enhancements:
+  - Header-based limit detection
+  - Dynamic interval adjustment
+  - Jittered backoff
+- Database features:
   - Async schema creation
   - Environment configuration
-  - Migration stamping
-- Core extraction features:
-  - Batch processing
-  - Error tracking
-  - Report generation
-- Rate limiter enhancements:
-  - Precise timing controls
-  - Retry tracking
-  - Header-based error detection
+  - Connection pooling
 
 ## Technical Considerations
 
