@@ -4,7 +4,7 @@ Database operations for managing item data.
 
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert, delete, exists
+from sqlalchemy import select, exists
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from .models import Item, Group, ItemGroup

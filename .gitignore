@@ -1,3 +1,7 @@
 /.history
 .aider*
 .env
+*.pyc
+tests/__pycache__/__init__.cpython-311.pyc
+items.db
+.vscode
