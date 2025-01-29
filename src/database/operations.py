@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.dialects.sqlite import insert as sqlite_upsert
 from sqlalchemy.sql.expression import bindparam
 
-from .models import Item, Group, ItemGroup
+from .models import Item, Group, ItemGroup, ConnectedRealm
 from .init_db import get_engine
 
 logger = logging.getLogger(__name__)
@@ -133,5 +133,62 @@ async def item_exists(session: AsyncSession, item_id: int) -> bool:
     """Check if an item exists in the database"""
     result = await session.execute(
         select(exists().where(Item.item_id == item_id))
+    )
+    return result.scalar()
+
+async def get_connected_realm_by_id(session: AsyncSession, connected_realm_id: int) -> Optional[ConnectedRealm]:
+    """Retrieve a connected realm by its ID."""
+    try:
+        result = await session.execute(
+            select(ConnectedRealm).where(ConnectedRealm.connected_realm_id == connected_realm_id)
+        )
+        return result.scalar_one_or_none()
+    except SQLAlchemyError as e:
+        logger.error(f"Failed to get connected realm {connected_realm_id}: {str(e)}")
+        raise
+
+async def upsert_connected_realm(session: AsyncSession, realm_data: Dict[str, Any]) -> ConnectedRealm:
+    """Create or update a connected realm."""
+    try:
+        stmt = (
+            sqlite_upsert(ConnectedRealm)
+            .values(realm_data)
+            .on_conflict_do_update(
+                index_elements=[ConnectedRealm.connected_realm_id],
+                set_={
+                    "name": bindparam("name"),
+                    "population_type": bindparam("population_type"),
+                    "realm_category": bindparam("realm_category"),
+                    "status": bindparam("status"),
+                    "last_updated": bindparam("last_updated")
+                }
+            )
+        )
+        await session.execute(stmt)
+        await session.commit()
+        return await get_connected_realm_by_id(session, realm_data['connected_realm_id'])
+    except SQLAlchemyError as e:
+        logger.error(f"Failed to create/update connected realm: {str(e)}")
+        await session.rollback()
+        raise
+
+async def get_connected_realms(
+    session: AsyncSession,
+    page: int = 1,
+    page_size: int = 100
+) -> List[ConnectedRealm]:
+    """Get all connected realms with pagination."""
+    try:
+        query = select(ConnectedRealm).offset((page - 1) * page_size).limit(page_size)
+        result = await session.execute(query)
+        return result.scalars().all()
+    except SQLAlchemyError as e:
+        logger.error(f"Failed to get connected realms: {str(e)}")
+        raise
+
+async def connected_realm_exists(session: AsyncSession, connected_realm_id: int) -> bool:
+    """Check if a connected realm exists in the database."""
+    result = await session.execute(
+        select(exists().where(ConnectedRealm.connected_realm_id == connected_realm_id))
     )
     return result.scalar()

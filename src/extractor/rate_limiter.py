@@ -3,7 +3,7 @@ import time
 import random
 import logging
 import httpx
-from typing import Optional, AsyncIterator
+from typing import Optional
 from contextlib import asynccontextmanager
 
 class RateLimiter:
@@ -34,13 +34,18 @@ class RateLimiter:
     async def execute_with_retry(self, coro, max_retries: int = 3):
         """Execute request with Blizzard-specific rate limit handling"""
         retry_delay = 1.0
+        last_error = None
+        
         for attempt in range(max_retries + 1):
             try:
                 async with self.throttle():
+                    # Execute the coroutine as is
                     response = await coro
-                    self._update_limits_from_headers(response.headers)
+                    if hasattr(response, 'headers'):
+                        self._update_limits_from_headers(response.headers)
                     return response
             except httpx.HTTPStatusError as e:
+                last_error = e
                 if e.response.status_code == 429:
                     retry_after = e.response.headers.get("Retry-After", "1")
                     retry_delay = float(retry_after) + 0.5  # Add buffer
@@ -49,11 +54,18 @@ class RateLimiter:
                     raise
                 
                 if attempt == max_retries:
+                    logging.error(f"Max retries ({max_retries}) reached. Last error: {e}")
                     raise
                     
                 await asyncio.sleep(retry_delay)
-                retry_delay *= 1.5  # Exponential backoff
-                retry_delay += random.uniform(0, 0.1)  # Add jitter
+                retry_delay = min(retry_delay * 1.5 + random.uniform(0, 0.1), 30.0)  # Exponential backoff with jitter and max delay
+            except Exception as e:
+                logging.error(f"Unexpected error during request: {e}")
+                raise
+        
+        if last_error:
+            raise last_error
+        raise RuntimeError("Request failed after all retries")
 
     def is_retryable(self, error: Exception) -> bool:
         """Determine if a request should be retried based on Blizzard API error codes"""

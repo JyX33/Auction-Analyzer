@@ -106,6 +106,15 @@ project_root/
   - Async schema initialization
   - Environment-based configuration
   - Proper connection pooling
+- API Request Flow Improvements:
+  - Switched from search endpoint to direct item endpoint
+  - Enhanced error handling for empty responses
+  - Added locale-aware request handling
+  - Improved data transformation resilience
+- Error Handling Enhancements:
+  - Added robust validation for API responses
+  - Implemented graceful handling of missing data
+  - Enhanced error reporting clarity
 
   ```
   project_root/

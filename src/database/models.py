@@ -2,8 +2,9 @@
 SQLAlchemy models for database entities.
 """
 
+from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Text, ForeignKey
+from sqlalchemy import Column, Integer, Text, ForeignKey, String, DateTime
 from sqlalchemy.orm import relationship
 
 Base = declarative_base()
@@ -37,3 +38,15 @@ class ItemGroup(Base):
 
     item_id = Column(Integer, ForeignKey('items.item_id'), primary_key=True)
     group_id = Column(Integer, ForeignKey('groups.group_id'), primary_key=True)
+
+class ConnectedRealm(Base):
+    """Model representing a connected realm in World of Warcraft."""
+    __tablename__ = 'connected_realms'
+
+    id = Column(Integer, primary_key=True)
+    connected_realm_id = Column(Integer, unique=True, nullable=False)
+    name = Column(String, nullable=False)
+    population_type = Column(String)
+    realm_category = Column(String)
+    status = Column(String)
+    last_updated = Column(DateTime, default=datetime.utcnow)

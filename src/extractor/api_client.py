@@ -52,6 +52,52 @@ class BlizzardAPIClient:
                 return {"results": []}  # Return empty results for non-existent items
             raise
 
+    async def fetch_connected_realms_index(self) -> list[int]:
+        """Fetch list of all connected realm IDs"""
+        url = f"{self.base_url}/connected-realm/index?namespace=dynamic-eu&locale=en_US"
+        try:
+            response = await self._request("GET", url)
+            realms = []
+            for href in response.get("connected_realms", []):
+                # Extract ID from href which looks like "https://.../data/wow/connected-realm/1234"
+                try:
+                    # Handle both full URLs and relative paths
+                    parts = href.rstrip('/').split('/')
+                    realm_id = int(parts[-1])
+                    realms.append(realm_id)
+                except (ValueError, IndexError) as e:
+                    logging.warning(f"Failed to parse realm ID from href {href}: {e}")
+                    continue
+            if not realms:
+                logging.warning(f"No realm IDs found in response: {response}")
+            return realms
+        except httpx.HTTPStatusError as e:
+            logging.error(f"Failed to fetch connected realms index: {e}")
+            return []
+        except Exception as e:
+            logging.error(f"Unexpected error in fetch_connected_realms_index: {e}")
+            return []
+
+    async def fetch_connected_realm_details(self, realm_id: int) -> Optional[dict]:
+        """Fetch details for a specific connected realm"""
+        url = f"{self.base_url}/connected-realm/{realm_id}?namespace=dynamic-eu&locale=en_US"
+        try:
+            response = await self._request("GET", url)
+            realm_data = {
+                "connected_realm_id": realm_id,
+                "name": response["realms"][0]["name"]["en_US"],  # Use first realm's name
+                "population_type": response["population"]["type"],
+                "realm_category": response["realms"][0]["category"],
+                "status": response["status"]["type"]
+            }
+            return realm_data
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logging.warning(f"Connected realm {realm_id} not found")
+                return None
+            logging.error(f"Failed to fetch details for realm {realm_id}: {e}")
+            raise
+
     async def _request(self, method: str, url: str, **kwargs) -> dict:
         """Execute API request with rate limiting and error handling"""
         if not self._client:
