@@ -92,13 +92,17 @@ project_root/
 
 ## Recent Changes
 
-*(This section will be updated as changes are made)*
-
-- Initial project setup
-- Documentation structure created
-- Basic architecture defined
-- Development environment preparation started
-- Project structure being initialized:
+- Added database models with proper relationships
+  - Implemented Item, Group, and ItemGroup models
+  - Added index for common query patterns (item_class_id + item_subclass_id)
+- Enhanced RateLimiter implementation:
+  - Monotonic clock for precise timing
+  - Blizzard-specific error handling
+  - Combined concurrency and rate limiting
+- Established core project structure:
+  - Completed database model layer
+  - Basic extraction scaffolding
+  - API endpoint placeholders
 
   ```
   project_root/
