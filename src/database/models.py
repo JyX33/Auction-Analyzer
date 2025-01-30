@@ -50,3 +50,21 @@ class ConnectedRealm(Base):
     realm_category = Column(String)
     status = Column(String)
     last_updated = Column(DateTime, default=datetime.utcnow)
+
+    auctions = relationship('Auction', back_populates='connected_realm')
+
+class Auction(Base):
+    """Model representing an auction from the WoW API."""
+    __tablename__ = 'auctions'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    auction_id = Column(Integer, nullable=False)
+    connected_realm_id = Column(Integer, ForeignKey('connected_realms.id'), nullable=False)
+    item_id = Column(Integer, ForeignKey('items.item_id'), nullable=False)
+    buyout_price = Column(Integer)
+    quantity = Column(Integer, nullable=False)
+    time_left = Column(String)
+    last_modified = Column(DateTime, nullable=False)
+
+    connected_realm = relationship('ConnectedRealm', back_populates='auctions')
+    item = relationship('Item', backref='auctions')

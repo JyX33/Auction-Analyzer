@@ -5,15 +5,18 @@ from pathlib import Path
 from typing import List
 
 from src.database.init_db import initialize_database
-from src.database.operations import get_session
 from src.extractor.main import main as run_extraction
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.WARN, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
+# Configure SQLAlchemy logging
+logging.getLogger("sqlalchemy").setLevel(logging.ERROR)
+
 logger = logging.getLogger(__name__)
+
 
 def read_item_ids(file_path: str = "items.txt") -> List[int]:
     """Read and parse item IDs from a text file"""
@@ -25,31 +28,39 @@ def read_item_ids(file_path: str = "items.txt") -> List[int]:
     with open(path, "r") as f:
         for line in f:
             # Handle both comma-separated and line-separated IDs
-            ids.extend(int(id_str.strip()) for id_str in line.split(",") if id_str.strip().isdigit())
-    
+            ids.extend(
+                int(id_str.strip())
+                for id_str in line.split(",")
+                if id_str.strip().isdigit()
+            )
+
     if not ids:
         raise ValueError("No valid item IDs found in the input file")
-    
+
     logger.info(f"Loaded {len(ids)} item IDs from {path.name}")
     return ids
+
 
 async def extraction_wrapper():
     """Wrapper function for the extraction process"""
     # Check required environment variables
-    if not all(os.getenv(var) for var in ["BLIZZARD_CLIENT_ID", "BLIZZARD_CLIENT_SECRET"]):
+    if not all(
+        os.getenv(var) for var in ["BLIZZARD_CLIENT_ID", "BLIZZARD_CLIENT_SECRET"]
+    ):
         raise RuntimeError("Missing Blizzard API credentials in environment variables")
 
     # Initialize database
     await initialize_database()
-    
+
     # Read item IDs
     item_ids = read_item_ids()
-    
+
     # Run extraction
-    async with get_session() as session:
-        success = await run_extraction(item_ids, session)
-    
+
+    success = await run_extraction(item_ids)
+
     return success
+
 
 if __name__ == "__main__":
     try:
@@ -58,5 +69,5 @@ if __name__ == "__main__":
     except Exception as e:
         logger.critical(f"Extraction failed: {str(e)}")
         exit_code = 1
-    
+
     exit(exit_code)

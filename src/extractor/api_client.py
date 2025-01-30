@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import AsyncIterator, Optional
 
 import httpx
@@ -64,8 +65,8 @@ class BlizzardAPIClient:
                     # Handle both full URLs and relative paths
                     href = realm.get("href", "")
                     # Remove query parameters and trailing slashes
-                    clean_href = href.split('?')[0].rstrip('/')
-                    parts = clean_href.split('/')
+                    clean_href = href.split("?")[0].rstrip("/")
+                    parts = clean_href.split("/")
                     realm_id = int(parts[-1])
                     realms.append(realm_id)
                 except (ValueError, IndexError) as e:
@@ -91,28 +92,15 @@ class BlizzardAPIClient:
             if not realms:
                 logging.warning(f"No realms found for connected realm {realm_id}")
                 return None
-                
+
             first_realm = realms[0]
-            
-            # Helper function to safely extract string values from potentially nested structures
-            def safe_extract(obj, *keys, default="Unknown"):
-                try:
-                    value = obj
-                    for key in keys:
-                        if isinstance(value, dict):
-                            value = value.get(key, default)
-                        else:
-                            return default
-                    return value
-                except Exception:
-                    return default
-            
+
             realm_data = {
                 "connected_realm_id": realm_id,
-                "name": safe_extract(first_realm, "name", "en_US"),
-                "population_type": safe_extract(response, "population", "type"),
-                "realm_category": safe_extract(first_realm, "category"),
-                "status": safe_extract(response, "status", "type")
+                "name": first_realm.get("slug", "unknown"),
+                "population_type": response["population"].get("name", "unknown"),
+                "realm_category": first_realm.get("category", "unknown"),
+                "status": response.get("status", {}).get("name", "unknown"),
             }
             return realm_data
         except httpx.HTTPStatusError as e:
@@ -121,6 +109,76 @@ class BlizzardAPIClient:
                 return None
             logging.error(f"Failed to fetch details for realm {realm_id}: {e}")
             raise
+
+    async def fetch_auctions(
+        self, connected_realm_id: int, items_ids: set[int]
+    ) -> list[dict]:
+        """Fetch auction house data for a connected realm."""
+        url = f"{self.base_url}/connected-realm/{connected_realm_id}/auctions?namespace=dynamic-eu&locale=en_US"
+        try:
+            response = await self._request("GET", url)
+            auctions = response.get("auctions", [])
+
+            # Transform auction data to match our schema
+            transformed_auctions = []
+            for auction in auctions:
+                try:
+                    # Log raw auction data for debugging
+                    logging.debug(f"Raw auction data: {auction}")
+
+                    # Check if required fields exist
+                    if "id" not in auction or "item" not in auction:
+                        logging.warning(f"Auction missing required fields: {auction}")
+                        continue
+
+                    # Get item ID safely
+                    item_id = auction["item"]["id"]
+
+                    if not item_id:
+                        logging.warning(
+                            f"Could not extract item ID from auction: {auction}"
+                        )
+                        continue
+
+                    if item_id not in items_ids:
+                        logging.debug(
+                            f"Skipping item ID {item_id} not in requested list"
+                        )
+                        continue
+
+                    transformed_auction = {
+                        "auction_id": auction["id"],
+                        "connected_realm_id": connected_realm_id,
+                        "item_id": item_id,
+                        "buyout_price": auction.get(
+                            "buyout", 0
+                        ),  # Use 0 if no buyout price
+                        "quantity": auction.get(
+                            "quantity", 1
+                        ),  # Default to 1 if not specified
+                        "time_left": auction.get("time_left", ""),
+                        "last_modified": datetime.utcnow(),  # Use current time as fallback
+                    }
+                    transformed_auctions.append(transformed_auction)
+                    logging.debug(f"Transformed auction data: {transformed_auction}")
+                except (KeyError, ValueError) as e:
+                    logging.warning(
+                        f"Failed to transform auction data: {e}, auction: {auction}"
+                    )
+                    continue
+
+            return transformed_auctions
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logging.warning(f"No auctions found for realm {connected_realm_id}")
+                return []
+            logging.error(
+                f"Failed to fetch auctions for realm {connected_realm_id}: {e}"
+            )
+            raise
+        except Exception as e:
+            logging.error(f"Unexpected error while fetching auctions: {e}")
+            return []
 
     async def _request(self, method: str, url: str, **kwargs) -> dict:
         """Execute API request with rate limiting and error handling"""

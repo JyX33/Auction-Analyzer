@@ -1,21 +1,22 @@
 # src/database/init_db.py
 """Database initialization and migration configuration."""
-import os
 import logging
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy_utils import database_exists, create_database
+import os
+
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy_utils import create_database, database_exists
+
 from src.database.models import Base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./items.db")
 
+
 async def get_engine() -> AsyncEngine:
     """Create and return async database engine."""
     return create_async_engine(
-        DATABASE_URL,
-        echo=True,  # SQL query logging
-        future=True
+        DATABASE_URL, echo=False, future=True  # SQL query logging
     )
+
 
 async def initialize_database():
     """Initialize database with async support."""
@@ -34,6 +35,8 @@ async def initialize_database():
     await engine.dispose()
     logging.info("Database initialization complete")
 
+
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(initialize_database())

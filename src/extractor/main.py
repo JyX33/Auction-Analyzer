@@ -9,41 +9,51 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.operations import (
-    upsert_items,
-    upsert_connected_realm,
     connected_realm_exists,
-    get_all_item_ids
+    get_all_item_ids,
+    get_connected_realm_by_id,
+    upsert_auctions,
+    upsert_connected_realm,
+    upsert_items,
+    get_session,
 )
+
 from .api_client import BlizzardAPIClient
+
 
 class ItemExtractor:
     def __init__(self):
         self.client = BlizzardAPIClient(
-            os.getenv("BLIZZARD_CLIENT_ID"),
-            os.getenv("BLIZZARD_CLIENT_SECRET")
+            os.getenv("BLIZZARD_CLIENT_ID"), os.getenv("BLIZZARD_CLIENT_SECRET")
         )
         self.stats = {
-            "processed": 0, 
-            "succeeded": 0, 
-            "failed": 0, 
+            "processed": 0,
+            "succeeded": 0,
+            "failed": 0,
             "retries": 0,
             "realms_processed": 0,
             "realms_succeeded": 0,
             "realms_failed": 0,
-            "realms_skipped": 0,  # New stat for skipped realms
-            "items_skipped": 0    # New stat for skipped items
+            "realms_skipped": 0,  # Realms already in DB
+            "items_skipped": 0,  # Items already in DB
+            "auctions_processed": 0,  # New auction stats
+            "auctions_succeeded": 0,
+            "auctions_failed": 0,
+            "auctions_skipped": 0,  # Auctions already in DB and unchanged
         }
 
     def transform_item(self, raw_data: dict) -> dict:
         """Transform API response to database schema"""
         if not raw_data.get("results") or not raw_data["results"]:
             raise ValueError("No results found in API response")
-            
+
         item = raw_data["results"][0]["data"]
         try:
             return {
                 "item_id": item["id"],
-                "item_name": item["name"],  # Direct API returns string, not localized dict
+                "item_name": item[
+                    "name"
+                ],  # Direct API returns string, not localized dict
                 "item_class_id": item["item_class"]["id"],
                 "item_class_name": item["item_class"]["name"],  # Direct string
                 "item_subclass_id": item["item_subclass"]["id"],
@@ -62,14 +72,16 @@ class ItemExtractor:
             for realm_id in realm_ids:
                 try:
                     self.stats["realms_processed"] += 1
-                    
+
                     # Check if realm already exists and skip if it does
                     if await connected_realm_exists(session, realm_id):
                         logging.info(f"Skipping existing connected realm {realm_id}")
                         self.stats["realms_skipped"] += 1
                         continue
 
-                    realm_data = await self.client.fetch_connected_realm_details(realm_id)
+                    realm_data = await self.client.fetch_connected_realm_details(
+                        realm_id
+                    )
                     if realm_data:
                         realm_data["last_updated"] = datetime.utcnow()
                         await upsert_connected_realm(session, realm_data)
@@ -84,52 +96,100 @@ class ItemExtractor:
             logging.error(f"Connected realms extraction failed: {str(e)}")
             return False
 
-    async def process_batch(self, session: AsyncSession, item_ids: List[int]):
-        """Process batch of items"""
+    async def extract_auctions(self, connected_realm_id: int):
+        """Extract and store auction data for a connected realm using independent sessions"""
         try:
-            # Get all existing item IDs from the database
-            existing_items = await get_all_item_ids(session)
-            
-            # Filter out existing items efficiently using set operations
-            items_to_process = [item_id for item_id in item_ids if item_id not in existing_items]
-            skipped_items = [item_id for item_id in item_ids if item_id in existing_items]
-            
-            # Update stats for skipped items
-            for item_id in skipped_items:
-                logging.info(f"Skipping existing item {item_id}")
-                self.stats["items_skipped"] += 1
+            async with get_session() as session:
+                # Get realm details
+                realm = await get_connected_realm_by_id(session, connected_realm_id)
+                if not realm:
+                    logging.error(
+                        f"Connected realm {connected_realm_id} not found in database"
+                    )
+                    return False
 
-            if not items_to_process:
-                logging.info("All items in batch already exist, skipping batch")
+                # Get current item IDs
+                item_ids = await get_all_item_ids(session)
+
+            # Fetch auctions
+            auctions = await self.client.fetch_auctions(connected_realm_id, item_ids)
+            if not auctions:
+                logging.info(f"No auctions found for realm {connected_realm_id}")
                 return True
 
-            tasks = [
-                self.process_single_item(item_id, session)
-                for item_id in items_to_process
-            ]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Handle failed items
-            failed_items = [
-                item_id for item_id, result in zip(items_to_process, results)
-                if isinstance(result, Exception)
-            ]
-            
-            if failed_items:
-                logging.info(f"Retrying {len(failed_items)} failed items")
-                retry_results = await asyncio.gather(
-                    *[self.process_single_item(item_id, session)
-                      for item_id in failed_items],
-                    return_exceptions=True
-                )
-                # Update stats based on retry results
-                self.stats["succeeded"] += sum(
-                    1 for res in retry_results if not isinstance(res, Exception)
-                )
-                self.stats["failed"] += sum(
-                    1 for res in retry_results if isinstance(res, Exception)
-                )
+            # Process auctions in larger batches with independent sessions
+            batch_size = 1000
+            for i in range(0, len(auctions), batch_size):
+                batch = auctions[i:i + batch_size]
+                try:
+                    self.stats["auctions_processed"] += len(batch)
+                    await upsert_auctions(batch)
+                    self.stats["auctions_succeeded"] += len(batch)
+                except Exception as e:
+                    self.stats["auctions_failed"] += len(batch)
+                    logging.error(f"Failed to process auction batch: {str(e)}")
+
             return True
+        except Exception as e:
+            logging.error(
+                f"Auction extraction failed for realm {connected_realm_id}: {str(e)}"
+            )
+            return False
+
+    async def process_batch(self, item_ids: List[int]):
+        """Process batch of items with dedicated session"""
+        try:
+            async with get_session() as session:
+                # Get all existing item IDs from the database
+                existing_items = await get_all_item_ids(session)
+
+                # Filter out existing items efficiently using set operations
+                items_to_process = [
+                    item_id for item_id in item_ids if item_id not in existing_items
+                ]
+                skipped_items = [
+                    item_id for item_id in item_ids if item_id in existing_items
+                ]
+
+                # Update stats for skipped items
+                for item_id in skipped_items:
+                    logging.info(f"Skipping existing item {item_id}")
+                    self.stats["items_skipped"] += 1
+
+                if not items_to_process:
+                    logging.info("All items in batch already exist, skipping batch")
+                    return True
+
+                tasks = [
+                    self.process_single_item(item_id, session)
+                    for item_id in items_to_process
+                ]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                # Handle failed items
+                failed_items = [
+                    item_id
+                    for item_id, result in zip(items_to_process, results)
+                    if isinstance(result, Exception)
+                ]
+
+                if failed_items:
+                    logging.info(f"Retrying {len(failed_items)} failed items")
+                    retry_results = await asyncio.gather(
+                        *[
+                            self.process_single_item(item_id, session)
+                            for item_id in failed_items
+                        ],
+                        return_exceptions=True,
+                    )
+                    # Update stats based on retry results
+                    self.stats["succeeded"] += sum(
+                        1 for res in retry_results if not isinstance(res, Exception)
+                    )
+                    self.stats["failed"] += sum(
+                        1 for res in retry_results if isinstance(res, Exception)
+                    )
+                return True
         except Exception as e:
             logging.error(f"Batch processing failed: {str(e)}")
             return False
@@ -170,39 +230,54 @@ class ItemExtractor:
 - Successful: {self.stats['realms_succeeded']}
 - Failed: {self.stats['realms_failed']}
 - Skipped (Already Exist): {self.stats['realms_skipped']}
+
+## Auction Summary
+- Total Auctions Processed: {self.stats['auctions_processed']}
+- Successful: {self.stats['auctions_succeeded']}
+- Failed: {self.stats['auctions_failed']}
+- Skipped (Already Exist): {self.stats['auctions_skipped']}
         """
 
         with open(report_path, "w") as f:
             f.write(report_content)
 
-async def main(item_ids: List[int], session: AsyncSession):
+
+async def main(item_ids: List[int]):
     """Main entry point with proper transaction handling"""
     extractor = ItemExtractor()
-    
+
     try:
         # Create API client session first
         async with extractor.client.session():
-            # Process all operations in a single transaction
+            # Process operations with dedicated sessions
             logging.info("Extracting connected realms data...")
-            realms_success = await extractor.extract_connected_realms(session)
-            
+            async with get_session() as session:
+                realms_success = await extractor.extract_connected_realms(session)
+
             if not realms_success:
                 logging.error("Connected realms extraction failed")
                 return False
-            
+
             # Process items in batches with delay
+            logging.info("Processing items...")
             batch_size = 50
             for i in range(0, len(item_ids), batch_size):
                 batch = item_ids[i:i + batch_size]
-                await extractor.process_batch(session, batch)
+                await extractor.process_batch(batch)
                 if i + batch_size < len(item_ids):  # Don't delay after last batch
                     await asyncio.sleep(1)  # 1000ms = 1s
+
+            # Extract auctions for each connected realm sequentially
+            logging.info("Extracting auction data...")
+            realm_ids = await extractor.client.fetch_connected_realms_index()
+
+            for realm_id in realm_ids:
+                logging.info(f"Processing auctions for realm {realm_id}")
+                await extractor.extract_auctions(realm_id)
 
             extractor.generate_report()
             return True
     except Exception as e:
-        if session.in_transaction():
-            await session.rollback()
         logging.critical(f"Extraction aborted: {str(e)}")
         extractor.generate_report()
         return False

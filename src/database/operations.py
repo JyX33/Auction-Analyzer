@@ -3,7 +3,9 @@ Database operations for managing item data.
 """
 
 import logging
+import asyncio
 from typing import List, Optional, Dict, Any, AsyncIterator
+from datetime import datetime
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, exists
@@ -11,25 +13,32 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.dialects.sqlite import insert as sqlite_upsert
 from sqlalchemy.sql.expression import bindparam
 
-from .models import Item, Group, ItemGroup, ConnectedRealm
+from .models import Item, Group, ItemGroup, ConnectedRealm, Auction
 from .init_db import get_engine
+
+# Create a semaphore to control concurrent SQLite access
+_db_semaphore = asyncio.Semaphore(1)
+
+# Disable SQLAlchemy logging
+logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """Async context manager for database sessions"""
-    engine = await get_engine()
-    async with AsyncSession(engine, expire_on_commit=False) as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception as e:
-            logger.error(f"Session rollback due to error: {str(e)}")
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    """Async context manager for database sessions with concurrency control"""
+    async with _db_semaphore:  # Ensure only one write operation at a time
+        engine = await get_engine()
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception as e:
+                logger.error(f"Session rollback due to error: {str(e)}")
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
 
 async def get_item_by_id(session: AsyncSession, item_id: int) -> Optional[Item]:
     """Retrieve an item by its ID."""
@@ -197,3 +206,105 @@ async def connected_realm_exists(session: AsyncSession, connected_realm_id: int)
         select(exists().where(ConnectedRealm.connected_realm_id == connected_realm_id))
     )
     return result.scalar()
+
+async def auction_exists(session: AsyncSession, auction_id: int, connected_realm_id: int) -> bool:
+    """Check if an auction exists in the database."""
+    result = await session.execute(
+        select(exists().where(
+            (Auction.auction_id == auction_id) & 
+            (Auction.connected_realm_id == connected_realm_id)
+        ))
+    )
+    return result.scalar()
+
+async def upsert_auctions(auctions: List[dict]):
+    """Batch upsert auctions with conflict handling using dedicated session."""
+    if not auctions:
+        return
+
+    async with get_session() as session:
+        # Validate and transform auction data
+        valid_auctions = []
+        required_keys = [
+            "auction_id", "connected_realm_id", "item_id",
+            "buyout_price", "quantity", "time_left", "last_modified"
+        ]
+        
+        for idx, auction in enumerate(auctions):
+            try:
+                # Validate auction structure and values
+                missing_keys = [k for k in required_keys if k not in auction]
+                if missing_keys:
+                    logger.warning(f"Skipping auction {idx}: Missing keys {missing_keys}")
+                    continue
+
+                null_keys = [k for k in required_keys if auction[k] is None]
+                if null_keys:
+                    logger.warning(f"Skipping auction {idx}: Null values in {null_keys}")
+                    continue
+
+                # Type validation
+                if not isinstance(auction["item_id"], int):
+                    logger.warning(f"Skipping auction {idx}: item_id must be integer")
+                    continue
+
+                # Create validated auction record
+                valid_auctions.append({
+                    "auction_id": int(auction["auction_id"]),
+                    "connected_realm_id": int(auction["connected_realm_id"]),
+                    "item_id": int(auction["item_id"]),
+                    "buyout_price": int(auction["buyout_price"]),
+                    "quantity": int(auction["quantity"]),
+                    "time_left": str(auction["time_left"]),
+                    "last_modified": datetime.fromisoformat(str(auction["last_modified"])),
+                })
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Skipping invalid auction {idx}: {str(e)}")
+
+        if not valid_auctions:
+            logger.warning("No valid auctions to insert")
+            return
+
+        try:
+            # Insert or update in a single statement
+            stmt = (
+                sqlite_upsert(Auction)
+                .values(auctions)
+                .on_conflict_do_update(
+                    index_elements=[Auction.auction_id, Auction.connected_realm_id],
+                    set_=dict(
+                        item_id=Auction.item_id,
+                        buyout_price=Auction.buyout_price,
+                        quantity=Auction.quantity,
+                        time_left=Auction.time_left,
+                        last_modified=Auction.last_modified
+                    )
+                )
+            )
+            await session.execute(stmt)
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to upsert auctions: {str(e)}")
+            raise
+
+async def get_auctions(
+    session: AsyncSession,
+    connected_realm_id: Optional[int] = None,
+    item_id: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 100
+) -> List[Auction]:
+    """Get auctions with optional filtering and pagination."""
+    try:
+        query = select(Auction)
+        
+        if connected_realm_id is not None:
+            query = query.where(Auction.connected_realm_id == connected_realm_id)
+        if item_id is not None:
+            query = query.where(Auction.item_id == item_id)
+            
+        query = query.offset((page - 1) * page_size).limit(page_size)
+        result = await session.execute(query)
+        return result.scalars().all()
+    except SQLAlchemyError as e:
+        logger.error(f"Failed to get auctions: {str(e)}")
+        raise
