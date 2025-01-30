@@ -125,7 +125,7 @@ class ItemExtractor:
             # Process auctions with the same session
             batch_size = 5000  # Increased batch size
             for i in range(0, len(auctions), batch_size):
-                batch = auctions[i : i + batch_size]
+                batch = auctions[i: i + batch_size]
                 try:
                     self.stats["auctions_processed"] += len(batch)
                     await upsert_auctions(batch)
@@ -277,7 +277,7 @@ async def main(item_ids: List[int]):
             logging.info("Processing items...")
             batch_size = 50
             for i in range(0, len(item_ids), batch_size):
-                batch = item_ids[i : i + batch_size]
+                batch = item_ids[i: i + batch_size]
                 await extractor.process_batch(batch)
                 if i + batch_size < len(item_ids):  # Don't delay after last batch
                     await asyncio.sleep(1)  # 1000ms = 1s

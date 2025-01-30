@@ -281,7 +281,7 @@ async def upsert_auctions(auctions: List[dict]):
 
     # Process auctions in batches
     batches = [
-        auctions[i : i + AUCTION_BATCH_SIZE]
+        auctions[i: i + AUCTION_BATCH_SIZE]
         for i in range(0, len(auctions), AUCTION_BATCH_SIZE)
     ]
     logger.info(f"Processing {len(auctions)} auctions in {len(batches)} batches")
