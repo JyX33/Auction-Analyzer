@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -12,10 +13,10 @@ from src.database.operations import (
     connected_realm_exists,
     get_all_item_ids,
     get_connected_realm_by_id,
+    get_session,
     upsert_auctions,
     upsert_connected_realm,
     upsert_items,
-    get_session,
 )
 
 from .api_client import BlizzardAPIClient
@@ -75,7 +76,7 @@ class ItemExtractor:
 
                     # Check if realm already exists and skip if it does
                     if await connected_realm_exists(session, realm_id):
-                        logging.info(f"Skipping existing connected realm {realm_id}")
+                        logging.debug(f"Skipping existing connected realm {realm_id}")
                         self.stats["realms_skipped"] += 1
                         continue
 
@@ -96,20 +97,24 @@ class ItemExtractor:
             logging.error(f"Connected realms extraction failed: {str(e)}")
             return False
 
-    async def extract_auctions(self, connected_realm_id: int):
-        """Extract and store auction data for a connected realm using independent sessions"""
-        try:
-            async with get_session() as session:
-                # Get realm details
-                realm = await get_connected_realm_by_id(session, connected_realm_id)
-                if not realm:
-                    logging.error(
-                        f"Connected realm {connected_realm_id} not found in database"
-                    )
-                    return False
+    async def process_realm_auctions(
+        self, session: AsyncSession, connected_realm_id: int
+    ):
+        """Process auctions for a single realm with error handling"""
+        logging.info(f"Starting auction processing for realm {connected_realm_id}")
+        start_time = time.perf_counter()
 
-                # Get current item IDs
-                item_ids = await get_all_item_ids(session)
+        try:
+            # Get realm details using provided session
+            realm = await get_connected_realm_by_id(session, connected_realm_id)
+            if not realm:
+                logging.error(
+                    f"Connected realm {connected_realm_id} not found in database"
+                )
+                return False
+
+            # Get current item IDs
+            item_ids = await get_all_item_ids(session)
 
             # Fetch auctions
             auctions = await self.client.fetch_auctions(connected_realm_id, item_ids)
@@ -117,10 +122,10 @@ class ItemExtractor:
                 logging.info(f"No auctions found for realm {connected_realm_id}")
                 return True
 
-            # Process auctions in larger batches with independent sessions
-            batch_size = 1000
+            # Process auctions with the same session
+            batch_size = 5000  # Increased batch size
             for i in range(0, len(auctions), batch_size):
-                batch = auctions[i:i + batch_size]
+                batch = auctions[i : i + batch_size]
                 try:
                     self.stats["auctions_processed"] += len(batch)
                     await upsert_auctions(batch)
@@ -129,12 +134,22 @@ class ItemExtractor:
                     self.stats["auctions_failed"] += len(batch)
                     logging.error(f"Failed to process auction batch: {str(e)}")
 
+            processing_time = time.perf_counter() - start_time
+            logging.info(
+                f"Completed processing {len(auctions)} auctions for realm {connected_realm_id} "
+                f"in {processing_time:.2f} seconds"
+            )
             return True
+
         except Exception as e:
             logging.error(
                 f"Auction extraction failed for realm {connected_realm_id}: {str(e)}"
             )
             return False
+
+    async def extract_auctions(self, session: AsyncSession, connected_realm_id: int):
+        """Extract and store auction data for a connected realm"""
+        return await self.process_realm_auctions(session, connected_realm_id)
 
     async def process_batch(self, item_ids: List[int]):
         """Process batch of items with dedicated session"""
@@ -153,7 +168,7 @@ class ItemExtractor:
 
                 # Update stats for skipped items
                 for item_id in skipped_items:
-                    logging.info(f"Skipping existing item {item_id}")
+                    logging.debug(f"Skipping existing item {item_id}")
                     self.stats["items_skipped"] += 1
 
                 if not items_to_process:
@@ -262,21 +277,50 @@ async def main(item_ids: List[int]):
             logging.info("Processing items...")
             batch_size = 50
             for i in range(0, len(item_ids), batch_size):
-                batch = item_ids[i:i + batch_size]
+                batch = item_ids[i : i + batch_size]
                 await extractor.process_batch(batch)
                 if i + batch_size < len(item_ids):  # Don't delay after last batch
                     await asyncio.sleep(1)  # 1000ms = 1s
 
-            # Extract auctions for each connected realm sequentially
+            # Extract auctions for all connected realms in parallel
             logging.info("Extracting auction data...")
             realm_ids = await extractor.client.fetch_connected_realms_index()
 
-            for realm_id in realm_ids:
-                logging.info(f"Processing auctions for realm {realm_id}")
-                await extractor.extract_auctions(realm_id)
+            # Create semaphore to limit concurrent realm processing
+            realm_semaphore = asyncio.Semaphore(10)  # Process 10 realms at a time
+
+            async def process_realm_with_session(realm_id: int) -> bool:
+                async with realm_semaphore:  # Limit concurrent processing
+                    async with get_session() as session:  # Each realm gets its own session
+                        return await extractor.extract_auctions(session, realm_id)
+
+            # Create tasks for all realms with individual sessions
+            start_time = time.perf_counter()
+            realm_tasks = [
+                process_realm_with_session(realm_id) for realm_id in realm_ids
+            ]
+            results = await asyncio.gather(*realm_tasks, return_exceptions=True)
+            processing_time = time.perf_counter() - start_time
+
+            # Handle results and any exceptions
+            failed_realms = [
+                realm_id
+                for realm_id, result in zip(realm_ids, results)
+                if isinstance(result, Exception) or result is False
+            ]
+
+            if failed_realms:
+                logging.error(f"Failed to process realms: {failed_realms}")
+
+            total_realms = len(realm_ids)
+            successful_realms = total_realms - len(failed_realms)
+            logging.info(
+                f"Completed auction extraction for {successful_realms}/{total_realms} realms "
+                f"in {processing_time:.2f} seconds"
+            )
 
             extractor.generate_report()
-            return True
+            return len(failed_realms) == 0
     except Exception as e:
         logging.critical(f"Extraction aborted: {str(e)}")
         extractor.generate_report()

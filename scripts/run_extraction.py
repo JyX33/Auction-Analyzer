@@ -9,11 +9,9 @@ from src.extractor.main import main as run_extraction
 
 # Configure logging
 logging.basicConfig(
-    level=logging.WARN, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-
-# Configure SQLAlchemy logging
-logging.getLogger("sqlalchemy").setLevel(logging.ERROR)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
