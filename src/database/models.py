@@ -20,6 +20,7 @@ class Item(Base):
     item_subclass_name = Column(Text)
     display_subclass_name = Column(Text)
     item_name = Column(Text)
+    extension = Column(Text, nullable=True)
     
     groups = relationship('Group', secondary='item_groups', back_populates='items')
 

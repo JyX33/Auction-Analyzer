@@ -50,6 +50,7 @@ erDiagram
 | `item_subclass_name`    | TEXT      |                | Name of the item's subclass (e.g., "Swords", "Plate").                        |
 | `display_subclass_name` | TEXT      |                | Display name for the subclass, as presented in the Blizzard API (optional). |
 | `item_name`             | TEXT      |                | Name of the item.                                                            |
+| `extension`             | TEXT      |                | User-defined item category extension (local field not from Blizzard API)     |
 
 ### 3.2. `groups` Table
 
