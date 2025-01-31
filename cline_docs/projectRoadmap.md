@@ -6,26 +6,11 @@
 - [x] Create efficient local data storage system
 - [ ] Develop REST API for data access
 - [ ] Enable user-defined item grouping functionality
+- [ ] Add realm ranking analysis frontend
 
 ## Features
 
-### Phase 1: Data Extraction (Current)
-
-- [x] Set up project structure and documentation
-- [x] Implement concurrent Blizzard API requests
-- [x] Handle rate limiting and error scenarios
-- [x] Generate detailed extraction reports
-- [x] Store item data in SQLite database
-
-### Phase 2: Database & Data Management
-
-- [x] Implement database schema
-- [x] Create database migration system
-- [x] Set up data validation
-- [x] Implement data update mechanisms
-- [ ] Create backup and restore functionality
-
-### Phase 3: REST API Development
+### Phase 3: REST API Development (Current)
 
 - [ ] Design and implement API endpoints
 - [ ] Add filtering and pagination
@@ -33,64 +18,29 @@
 - [ ] Add API documentation (Swagger UI)
 - [ ] Set up API testing
 
-### Phase 4: Item Groups Feature
+### New Phase 5: Realm Ranking Frontend
 
-- [ ] Implement group creation/management
-- [ ] Add items to groups functionality
-- [ ] Create group query endpoints
-- [ ] Add group data validation
+- [ ] Create React application structure
+- [ ] Implement realm selection interface
+- [ ] Add item/group price comparison
+- [ ] Develop ranking visualization
+- [ ] Connect to backend API
+- [ ] Implement user preferences storage
 
 ## Completion Criteria
 
-### Data Extraction
+### Realm Ranking Frontend
 
-- Successfully extract data for large item lists
-- Handle rate limits gracefully
-- Generate comprehensive extraction reports
-- Store data accurately in SQLite
-- Efficient batch processing with existing item filtering
-- Automatic skipping of duplicate realms/items
-- Inter-batch delays for API rate management
-
-### Database Management
-
-- Efficient data storage and retrieval
-- Data integrity maintenance
-- Successful backup/restore operations
-- Optimized batch operations for item updates
-- Duplicate prevention mechanisms
-
-### API Functionality
-
-- All endpoints working as documented
-- Proper error handling
-- Comprehensive API documentation
-- Successful API tests
-
-### Item Groups
-
-- Create and manage groups
-- Add/remove items from groups
-- Query items by group
-- Validate group operations
-
-## Completed Tasks
-
-*(This section will be updated as tasks are completed)*
-
-- Phase 1: Data Extraction completed
-- Phase 2: Data validation and update mechanisms implemented
-  - Set-based item filtering
-  - Connected realm duplicate prevention
-  - Batch processing optimization
-  - Rate limit management with delays
+- Display connected realms in sortable table
+- Show price trends for items/groups
+- Interactive historical price charts
+- Mobile-responsive design
+- Proper error handling for API calls
+- Loading states during data fetching
 
 ## Future Considerations
 
-- Potential migration to PostgreSQL for scaling
-- Authentication system for API
-- Enhanced group management features
-- Performance optimization for large datasets
-- API usage analytics
-- Periodic extraction scheduling
-- Database index optimization for ID queries
+- Price alert system
+- Multi-realm comparison view
+- Automated ranking reports
+- User account system for saved comparisons

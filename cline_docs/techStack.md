@@ -19,6 +19,54 @@
   - Rich ecosystem of libraries
   - Type hinting capabilities
 
+## Frontend Technologies
+
+### Core Framework and Runtime
+
+- **Bun**
+  - JavaScript runtime and tooling
+  - Built-in bundler and test runner
+  - NPM-compatible package manager
+  - TypeScript support out of the box
+
+### UI Framework and Components
+
+- **React with TypeScript**
+  - Type-safe component development
+  - Improved developer experience
+  - Better error catching
+  - Enhanced code maintainability
+
+- **shadcn/ui**
+  - Customizable component library
+  - Tailwind CSS integration
+  - Accessible components
+  - Modern design system
+
+### State Management
+
+- **Jotai**
+  - Atomic state management
+  - TypeScript-first approach
+  - Minimal boilerplate
+  - React Suspense support
+
+### Data Visualization
+
+- **Recharts**
+  - React-based charting library
+  - Responsive design
+  - Customizable components
+  - TypeScript support
+
+### Testing
+
+- **Vitest**
+  - Fast test runner
+  - ESM-first approach
+  - Compatible with Bun
+  - Jest-like API
+
 ## Database
 
 ### Primary Database
@@ -89,23 +137,6 @@
   - Exponential backoff for retries
   - Request pooling
 
-## Testing
-
-### Testing Framework
-
-- **pytest**
-  - Unit testing
-  - Integration testing
-  - Fixture support
-  - Async testing capabilities
-
-### API Testing
-
-- **httpx.TestClient**
-  - In-memory testing
-  - FastAPI endpoint testing
-  - Response validation
-
 ## Development Tools
 
 ### Version Control
@@ -148,6 +179,13 @@
 - Pagination support
 - Filtering capabilities
 - Error handling standards
+
+### Frontend Architecture
+
+- Component-based structure
+- Atomic state management with Jotai
+- Type-safe data fetching
+- Responsive design principles
 
 ### Concurrency Model
 
