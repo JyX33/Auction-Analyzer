@@ -38,7 +38,7 @@ graph LR
     Z --> T; {{ Release Semaphore & Continue }}
 ```
 
-### 1.2. Detailed Steps (Continued from Part 1)
+### 1.2. Detailed Steps
 
 1. **Start Script:** The data extraction script is initiated (e.g., run from the command line).
 2. **Read Item IDs from TXT File:** The script reads the list of item IDs from the specified text file.  Item IDs are expected to be comma-separated in the file.
