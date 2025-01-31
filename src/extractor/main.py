@@ -151,8 +151,12 @@ class ItemExtractor:
         """Extract and store auction data for a connected realm"""
         return await self.process_realm_auctions(session, connected_realm_id)
 
-    async def process_batch(self, item_ids: List[int]):
-        """Process batch of items with dedicated session"""
+    async def process_batch(self, item_entries: List[tuple]):
+        """Process batch of items with dedicated session
+        
+        Args:
+            item_entries: List of tuples containing (item_id, extension)
+        """
         try:
             async with get_session() as session:
                 # Get all existing item IDs from the database
@@ -160,14 +164,14 @@ class ItemExtractor:
 
                 # Filter out existing items efficiently using set operations
                 items_to_process = [
-                    item_id for item_id in item_ids if item_id not in existing_items
+                    entry for entry in item_entries if entry[0] not in existing_items
                 ]
                 skipped_items = [
-                    item_id for item_id in item_ids if item_id in existing_items
+                    entry for entry in item_entries if entry[0] in existing_items
                 ]
 
                 # Update stats for skipped items
-                for item_id in skipped_items:
+                for item_id, _ in skipped_items:
                     logging.debug(f"Skipping existing item {item_id}")
                     self.stats["items_skipped"] += 1
 
@@ -176,8 +180,8 @@ class ItemExtractor:
                     return True
 
                 tasks = [
-                    self.process_single_item(item_id, session)
-                    for item_id in items_to_process
+                    self.process_single_item(item_id, extension, session)
+                    for item_id, extension in items_to_process
                 ]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -209,12 +213,13 @@ class ItemExtractor:
             logging.error(f"Batch processing failed: {str(e)}")
             return False
 
-    async def process_single_item(self, item_id: int, session: AsyncSession):
+    async def process_single_item(self, item_id: int, extension: str, session: AsyncSession):
         """Process item with proper session management"""
         self.stats["processed"] += 1
         try:
             raw_data = await self.client.fetch_item(item_id)
             item_data = self.transform_item(raw_data)
+            item_data["extension"] = extension  # Add extension to item data
             await upsert_items(session, [item_data])
             self.stats["succeeded"] += 1
             return item_id
@@ -257,8 +262,12 @@ class ItemExtractor:
             f.write(report_content)
 
 
-async def main(item_ids: List[int]):
-    """Main entry point with proper transaction handling"""
+async def main(item_entries: List[tuple]):
+    """Main entry point with proper transaction handling
+    
+    Args:
+        item_entries: List of tuples containing (item_id, extension)
+    """
     extractor = ItemExtractor()
 
     try:
@@ -276,10 +285,10 @@ async def main(item_ids: List[int]):
             # Process items in batches with delay
             logging.info("Processing items...")
             batch_size = 50
-            for i in range(0, len(item_ids), batch_size):
-                batch = item_ids[i: i + batch_size]
+            for i in range(0, len(item_entries), batch_size):
+                batch = item_entries[i: i + batch_size]
                 await extractor.process_batch(batch)
-                if i + batch_size < len(item_ids):  # Don't delay after last batch
+                if i + batch_size < len(item_entries):  # Don't delay after last batch
                     await asyncio.sleep(1)  # 1000ms = 1s
 
             # Extract auctions for all connected realms in parallel

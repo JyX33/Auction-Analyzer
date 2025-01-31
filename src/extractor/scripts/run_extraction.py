@@ -16,27 +16,36 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-def read_item_ids(file_path: str = "items.txt") -> List[int]:
-    """Read and parse item IDs from a text file"""
+def read_item_ids(file_path: str = "items.txt") -> List[tuple]:
+    """Read and parse item IDs with extensions from a text file"""
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"Item ID file not found: {path.resolve()}")
 
-    ids = []
+    items = []
+    current_extension = None
     with open(path, "r") as f:
         for line in f:
-            # Handle both comma-separated and line-separated IDs
-            ids.extend(
-                int(id_str.strip())
-                for id_str in line.split(",")
-                if id_str.strip().isdigit()
-            )
+            line = line.strip()
+            if not line:
+                continue
 
-    if not ids:
+            # Handle extension declarations
+            if line.lower().startswith("extension="):
+                current_extension = line.split("=", 1)[1].strip() or None
+                continue
+
+            # Handle item IDs with current extension
+            for id_str in line.split(","):
+                id_str = id_str.strip()
+                if id_str.isdigit():
+                    items.append((int(id_str), current_extension))
+
+    if not items:
         raise ValueError("No valid item IDs found in the input file")
 
-    logger.info(f"Loaded {len(ids)} item IDs from {path.name}")
-    return ids
+    logger.info(f"Loaded {len(items)} items with extensions from {path.name}")
+    return items
 
 
 async def extraction_wrapper():
@@ -50,12 +59,12 @@ async def extraction_wrapper():
     # Initialize database
     await initialize_database()
 
-    # Read item IDs
-    item_ids = read_item_ids()
+    # Read items with extensions
+    item_entries = read_item_ids()
 
-    # Run extraction
+    # Run extraction with (id, extension) tuples
 
-    success = await run_extraction(item_ids)
+    success = await run_extraction(item_entries)
 
     return success
 

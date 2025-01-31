@@ -138,6 +138,7 @@ async def upsert_items(session: AsyncSession, items: List[dict]):
                 "item_subclass_name": bindparam("item_subclass_name"),
                 "display_subclass_name": bindparam("display_subclass_name"),
                 "item_name": bindparam("item_name"),
+                "extension": bindparam("extension"),
             },
         )
     )
