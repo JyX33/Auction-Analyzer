@@ -3,12 +3,22 @@ FastAPI main application module implementing the REST API endpoints.
 """
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from src.database.models import Item, Group
 from src.database.operations import get_db
 from pydantic import BaseModel
 
 app = FastAPI(title="Game Item API")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Next.js dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Pydantic models for API responses
 class ItemBase(BaseModel):
@@ -51,6 +61,23 @@ class GroupBase(BaseModel):
 
 class GroupDetail(GroupBase):
     items: List[ItemBase]
+
+class RealmData(BaseModel):
+    id: int
+    name: str
+    language: str
+    item_count: int
+    last_updated: str
+
+class PriceMetrics(BaseModel):
+    average_price: float
+    price_trend: float
+    item_details: List[dict] = []
+
+class RealmComparison(BaseModel):
+    realm_id: int
+    total_value: float
+    value_per_item: float
 
 @app.get("/api/v1/items/{item_id}", response_model=ItemDetail)
 async def get_item_by_id(item_id: int, db: Session = Depends(get_db)):
@@ -112,6 +139,7 @@ async def list_item_classes(db: Session = Depends(get_db)):
         for c in classes
     ]
 
+
 @app.get("/api/v1/item-classes/{class_id}/subclasses", response_model=List[ItemSubclass])
 async def list_subclasses_for_class(class_id: int, db: Session = Depends(get_db)):
     """List all subclasses for a specific item class."""
@@ -148,7 +176,6 @@ async def get_group_by_id(group_id: int, db: Session = Depends(get_db)):
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     return group
-
 @app.get("/api/v1/groups/{group_id}/items", response_model=List[ItemBase])
 async def list_items_in_group(group_id: int, db: Session = Depends(get_db)):
     """List all items in a specific group."""
@@ -157,3 +184,85 @@ async def list_items_in_group(group_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Group not found")
     
     return group.items
+
+@app.get("/api/v1/realms", response_model=List[RealmData])
+async def get_realms(language: Optional[str] = 'French', db: Session = Depends(get_db)):
+    """Get list of realms, optionally filtered by language category."""
+    from src.database.models import ConnectedRealm, Auction
+    from sqlalchemy import func
+    
+    # Start with base query
+    query = db.query(
+        ConnectedRealm.id,
+        ConnectedRealm.name,
+        ConnectedRealm.realm_category.label('language'),
+        func.count(Auction.id).label('item_count'),
+        func.max(ConnectedRealm.last_updated).label('last_updated')
+    ).outerjoin(Auction)
+    
+    # Apply language filter if provided
+    if language:
+        query = query.filter(ConnectedRealm.realm_category == language)
+    
+    # Group by realm and execute query
+    realms_data = query.group_by(
+        ConnectedRealm.id,
+        ConnectedRealm.name,
+        ConnectedRealm.realm_category
+    ).all()
+    
+    # Convert to RealmData objects
+    return [
+        RealmData(
+            id=r.id,
+            name=r.name,
+            language=r.language,
+            item_count=r.item_count,
+            last_updated=r.last_updated.isoformat() if r.last_updated else None
+        )
+        for r in realms_data
+    ]
+
+@app.get("/api/v1/prices/{realm_id}", response_model=PriceMetrics)
+async def get_realm_prices(
+    realm_id: int,
+    item_ids: str = Query(..., description="Comma-separated list of item IDs"),
+    time_range: str = Query("7d", description="Time range for price data"),
+    db: Session = Depends(get_db)
+):
+    """Get price metrics for items in a specific realm."""
+    # TODO: Implement actual price data fetching from database
+    # This is a placeholder implementation
+    return PriceMetrics(
+        average_price=100.0,
+        price_trend=1.5,
+        item_details=[
+            {
+                "item_id": int(id),
+                "current_price": 100.0,
+                "historical_low": 90.0,
+                "historical_high": 110.0
+            }
+            for id in item_ids.split(",")
+        ]
+    )
+
+@app.post("/api/v1/comparison", response_model=List[RealmComparison])
+async def compare_realms(
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """Compare realms based on item prices."""
+    realm_ids = request.get("realms", [])
+    item_ids = request.get("items", [])
+    
+    # TODO: Implement actual comparison logic using both realm_ids and item_ids
+    # This is a placeholder implementation
+    return [
+        RealmComparison(
+            realm_id=realm_id,
+            total_value=1000.0 * len(item_ids),  # Scale by number of items
+            value_per_item=1000.0
+        )
+        for realm_id in realm_ids
+    ]

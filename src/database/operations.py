@@ -12,15 +12,26 @@ from sqlalchemy import exists, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_upsert
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.expression import bindparam
 
-from .init_db import get_engine
+from .init_db import get_engine, get_sync_engine
 from .models import Auction, ConnectedRealm, Group, Item, ItemGroup
 
 # Batch size for auction processing
 AUCTION_BATCH_SIZE = 2000
 
 logger = logging.getLogger(__name__)
+
+def get_db():
+    """Synchronous database session for FastAPI dependency injection"""
+    engine = get_sync_engine()
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @asynccontextmanager

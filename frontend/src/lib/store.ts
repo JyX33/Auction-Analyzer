@@ -1,12 +1,13 @@
-import { atom } from 'jotai';
-import { atomWithStorage } from 'jotai/utils';
+import { atom, createStore } from 'jotai';
 import { apiClient, type RealmData, type PriceMetrics, type RealmComparison } from './api';
 
-// Persistent atoms (saved in localStorage)
-export const selectedRegionAtom = atomWithStorage<string>('selectedRegion', 'eu');
-export const selectedRealmIdsAtom = atomWithStorage<number[]>('selectedRealmIds', []);
-export const selectedItemIdsAtom = atomWithStorage<number[]>('selectedItemIds', []);
-export const timeRangeAtom = atomWithStorage<'7d' | '30d' | 'all'>('timeRange', '7d');
+const store = createStore();
+
+// Atoms with default values for SSR
+export const selectedRegionAtom = atom<string>('eu');
+export const selectedRealmIdsAtom = atom<number[]>([]);
+export const selectedItemIdsAtom = atom<number[]>([]);
+export const timeRangeAtom = atom<'7d' | '30d' | 'all'>('7d');
 
 // UI state atoms
 export const isLoadingAtom = atom<boolean>(false);
@@ -89,3 +90,5 @@ export const compareRealmsAtom = atom(
     }
   }
 );
+
+export default store;
