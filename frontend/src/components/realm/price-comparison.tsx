@@ -1,26 +1,54 @@
 import { useAtom } from "jotai";
 import { useEffect } from "react";
 import {
-  realmComparisonAtom,
+  sortedRealmComparisonAtom,
   compareRealmsAtom,
   isLoadingAtom,
   selectedRealmsAtom,
+  selectedItemIdsAtom,
 } from "@/lib/store";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-// import { WowMoney } from "@/components/ui/wow-money"; // REMOVE WowMoney import
+import { WowMoneyIcon } from "@/components/ui/wow-money-icon";
 import { ArrowUp, ArrowDown } from "lucide-react";
 
+function FormattedMoney({ copper }: { copper: number }) {
+  const gold = Math.floor(copper / 10000);
+  const silver = Math.floor((copper % 10000) / 100);
+  const remainingCopper = copper % 100;
+
+  return (
+    <div className="flex items-center gap-1">
+      {gold > 0 && (
+        <>
+          <WowMoneyIcon type="gold" className="w-4 h-4" />
+          <span>{gold}</span>
+        </>
+      )}
+      {(gold > 0 || silver > 0) && (
+        <>
+          <WowMoneyIcon type="silver" className="w-4 h-4" />
+          <span>{silver}</span>
+        </>
+      )}
+      <WowMoneyIcon type="copper" className="w-4 h-4" />
+      <span>{remainingCopper}</span>
+    </div>
+  );
+}
+
 export function PriceComparison() {
-  const [realmComparison] = useAtom(realmComparisonAtom);
+  const [realmComparison] = useAtom(sortedRealmComparisonAtom);
   const [selectedRealms] = useAtom(selectedRealmsAtom);
   const [isLoading] = useAtom(isLoadingAtom);
   const [, compareRealms] = useAtom(compareRealmsAtom);
 
+  const [selectedItems] = useAtom(selectedItemIdsAtom);
+  
   useEffect(() => {
-    if (selectedRealms.length > 0) {
+    if (selectedRealms.length > 0 && selectedItems.size > 0) {
       compareRealms();
     }
-  }, [compareRealms, selectedRealms]);
+  }, [compareRealms, selectedRealms, selectedItems]);
 
   if (isLoading) {
     return (
@@ -30,10 +58,13 @@ export function PriceComparison() {
     );
   }
 
-  if (selectedRealms.length === 0) {
+  if (selectedRealms.length === 0 || selectedItems.size === 0) {
     return (
       <div className="text-center p-4 text-muted-foreground">
-        Select realms to compare their prices
+        {selectedRealms.length === 0
+          ? "Select realms to compare their prices"
+          : "Select items to compare prices"
+        }
       </div>
     );
   }
@@ -78,13 +109,11 @@ export function PriceComparison() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <div className="text-muted-foreground">Average Item Value</div>
-                  {/* <WowMoney copper={comparison.value_per_item} /> */}  {/* REMOVE WowMoney component */}
-                  <span>{comparison.value_per_item} Copper</span> {/* PLACEHOLDER */}
+                  <FormattedMoney copper={comparison.value_per_item} />
                 </div>
                 <div>
                   <div className="text-muted-foreground">Total Market Value</div>
-                  {/* <WowMoney copper={comparison.total_value} /> */} {/* REMOVE WowMoney component */}
-                  <span>{comparison.total_value} Copper</span> {/* PLACEHOLDER */}
+                  <FormattedMoney copper={comparison.total_value} />
                 </div>
               </div>
             </div>

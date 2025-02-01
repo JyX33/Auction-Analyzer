@@ -3,14 +3,14 @@
 import {
   selectedItemIdsAtom,
   selectedRealmIdsAtom,
-  selectedRegionAtom,
+  selectedRealmCategoryAtom,
   timeRangeAtom,
 } from '@/lib/store';
 import { useAtom } from 'jotai';
 import { useEffect, useRef } from 'react';
 
 function useLocalStorage(isMounted: boolean) {
-  const [selectedRegion, setSelectedRegion] = useAtom(selectedRegionAtom);
+  const [selectedRegion, setSelectedRegion] = useAtom(selectedRealmCategoryAtom);
   const [selectedRealmIds, setSelectedRealmIds] = useAtom(selectedRealmIdsAtom);
   const [selectedItemIds, setSelectedItemIds] = useAtom(selectedItemIdsAtom);
   const [timeRange, setTimeRange] = useAtom(timeRangeAtom);

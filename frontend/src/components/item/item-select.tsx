@@ -3,11 +3,13 @@ import { useState } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { apiClient, type ItemBase } from '@/lib/api'
-import { selectedRealmIdsAtom } from '@/lib/store'
+import { selectedRealmIdsAtom, selectedItemIdsAtom, compareRealmsAtom } from '@/lib/store'
 import { LoadingSpinner } from '../ui/loading-spinner'
 
 export function ItemSelect() {
   const [selectedRealms] = useAtom(selectedRealmIdsAtom)
+  const [selectedItems, setSelectedItems] = useAtom(selectedItemIdsAtom)
+  const [, compareRealms] = useAtom(compareRealmsAtom)
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [searchResults, setSearchResults] = useState<ItemBase[]>([])
@@ -33,15 +35,19 @@ export function ItemSelect() {
     if (selectedRealms.length === 0) return
     setAddingItem(itemId)
     try {
-      await Promise.all(selectedRealms.map(realmId => 
-        apiClient.getRealmPrices(realmId, [itemId])
-      ))
-      alert('Item added to selected realms!')
-      setSearchResults([])
+      // Add item to selected items
+      const newSelectedItems = new Set(selectedItems);
+      newSelectedItems.add(itemId);
+      setSelectedItems(newSelectedItems);
+      
+      // Trigger realm comparison
+      await compareRealms();
+      
+      setSearchResults([]);
     } catch (error) {
-      alert(`Failed to add item: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      alert(`Failed to add item: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      setAddingItem(null)
+      setAddingItem(null);
     }
   }
 

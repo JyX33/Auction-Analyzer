@@ -44,7 +44,7 @@ export interface GroupDetail extends GroupBase {
 export interface RealmData {
   id: number;
   name: string;
-  region: string;
+  language: string;  // Changed from region to match backend
   item_count: number;
   last_updated: string;
 }
@@ -127,9 +127,9 @@ class APIClient {
   }
 
   // Realm endpoints
-  async getRealms(language: string = 'French'): Promise<RealmData[]> {
+  async getRealms(realm_category?: string): Promise<RealmData[]> {
     const params = new URLSearchParams();
-    if (language) params.append('realm_category', language);
+    if (realm_category) params.append('realm_category', realm_category);
     return this.fetchWithError<RealmData[]>(`/realms${params.toString() ? `?${params.toString()}` : ''}`);
   }
 

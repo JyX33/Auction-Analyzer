@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import {
   selectedRealmIdsAtom,
   realmsAtom,
-  selectedRegionAtom,
+  selectedRealmCategoryAtom,
   fetchRealmsAtom,
   isLoadingAtom,
 } from "@/lib/store";
@@ -15,13 +15,13 @@ import { Check } from "lucide-react";
 export function RealmSelect() {
   const [selectedRealmIds, setSelectedRealmIds] = useAtom(selectedRealmIdsAtom);
   const [realms] = useAtom(realmsAtom);
-  const [selectedRegion] = useAtom(selectedRegionAtom);
+  const [selectedRealmCategory] = useAtom(selectedRealmCategoryAtom);
   const [isLoading] = useAtom(isLoadingAtom);
   const [, fetchRealms] = useAtom(fetchRealmsAtom);
 
   useEffect(() => {
     fetchRealms();
-  }, [fetchRealms, selectedRegion]);
+  }, [fetchRealms, selectedRealmCategory]);
 
   if (isLoading) {
     return (

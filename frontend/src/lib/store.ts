@@ -4,7 +4,7 @@ import { apiClient, type RealmData, type PriceMetrics, type RealmComparison } fr
 const store = createStore();
 
 // Atoms with default values for SSR
-export const selectedRegionAtom = atom<string>('French');
+export const selectedRealmCategoryAtom = atom<string>('French');
 export const selectedRealmIdsAtom = atom<number[]>([]);
 export const selectedItemIdsAtom = atom<Set<number>>(new Set<number>());
 export const isItemSelectedAtom = atom(
@@ -76,12 +76,12 @@ export const sortedRealmComparisonAtom = atom(
 export const fetchRealmsAtom = atom(
   null,
   async (get, set) => {
-    const region = get(selectedRegionAtom);
+    const realm_category = get(selectedRealmCategoryAtom);
     set(isLoadingAtom, true);
     set(errorAtom, null);
 
     try {
-      const realms = await apiClient.getRealms(region);
+      const realms = await apiClient.getRealms(realm_category);
       set(realmsAtom, realms);
     } catch (error) {
       set(errorAtom, error instanceof Error ? error.message : 'Failed to fetch realms');
