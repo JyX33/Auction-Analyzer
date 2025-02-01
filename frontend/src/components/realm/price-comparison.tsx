@@ -9,7 +9,8 @@ import {
 } from "@/lib/store";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { WowMoneyIcon } from "@/components/ui/wow-money-icon";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUp, ArrowDown, Users } from "lucide-react";
+import type { RealmComparison } from "@/lib/api";
 
 function FormattedMoney({ copper }: { copper: number }) {
   const gold = Math.floor(copper / 10000);
@@ -36,12 +37,27 @@ function FormattedMoney({ copper }: { copper: number }) {
   );
 }
 
+function PopulationBadge({ type }: { type: string }) {
+  const colors = {
+    Full: "bg-red-100 text-red-800",
+    High: "bg-orange-100 text-orange-800",
+    Medium: "bg-yellow-100 text-yellow-800",
+    Low: "bg-green-100 text-green-800",
+  }[type] || "bg-gray-100 text-gray-800";
+
+  return (
+    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${colors}`}>
+      <Users className="w-3 h-3" />
+      <span>{type}</span>
+    </div>
+  );
+}
+
 export function PriceComparison() {
   const [realmComparison] = useAtom(sortedRealmComparisonAtom);
   const [selectedRealms] = useAtom(selectedRealmsAtom);
   const [isLoading] = useAtom(isLoadingAtom);
   const [, compareRealms] = useAtom(compareRealmsAtom);
-
   const [selectedItems] = useAtom(selectedItemIdsAtom);
   
   useEffect(() => {
@@ -73,7 +89,7 @@ export function PriceComparison() {
     <div className="space-y-4 p-4">
       <h2 className="text-xl font-semibold">Price Rankings</h2>
       <div className="grid gap-4">
-        {realmComparison.map((comparison, index) => {
+        {realmComparison.map((comparison: RealmComparison, index: number) => {
           const realm = selectedRealms.find((r) => r.id === comparison.realm_id);
           if (!realm) return null;
 
@@ -89,33 +105,84 @@ export function PriceComparison() {
                 "border-border"
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">{realm.name}</span>
-                <div className="flex items-center gap-2">
-                  {isHighest ? (
-                    <ArrowUp className="text-green-500" />
-                  ) : isLowest ? (
-                    <ArrowDown className="text-red-500" />
-                  ) : null}
-                  <span className={`text-sm font-medium ${
-                    isHighest ? "text-green-500" :
-                    isLowest ? "text-red-500" :
-                    "text-muted-foreground"
-                  }`}>
-                    Rank #{index + 1}
-                  </span>
+              <div className="flex items-center justify-between mb-4">
+               <div className="flex items-center gap-2">
+                 <span className="font-medium">{realm.name}</span>
+                 <PopulationBadge type={realm.population_type} />
+               </div>
+               <div className="flex items-center gap-2">
+                 {isHighest ? (
+                   <ArrowUp className="text-green-500" />
+                 ) : isLowest ? (
+                   <ArrowDown className="text-red-500" />
+                 ) : null}
+                 <span className={`text-sm font-medium ${
+                   isHighest ? "text-green-500" :
+                   isLowest ? "text-red-500" :
+                   "text-muted-foreground"
+                 }`}>
+                   Rank #{index + 1}
+                 </span>
+               </div>
+             </div>
+
+             <div className="grid grid-cols-3 gap-4 text-sm mb-4">
+               <div>
+                 <div className="text-muted-foreground">Average Item Value</div>
+                 <FormattedMoney copper={comparison.value_per_item} />
+               </div>
+               <div>
+                 <div className="text-muted-foreground">Total Market Value</div>
+                 <FormattedMoney copper={comparison.total_value} />
+               </div>
+               <div>
+                 <div className="text-muted-foreground">Market Rating</div>
+                 <span className={`font-medium ${
+                   isHighest ? "text-green-500" :
+                   isLowest ? "text-red-500" :
+                   "text-muted-foreground"
+                 }`}>
+                   {comparison.rating.toFixed(2)}
+                 </span>
+               </div>
+             </div>
+
+              {comparison.items && (
+                <div className="space-y-4">
+                  <div className="text-sm font-medium">Item Details</div>
+                  <div className="divide-y">
+                    {comparison.items.map((item) => (
+                      <div key={item.item_id} className="py-2">
+                        <div className="font-medium mb-2">{item.item_name}</div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <div className="text-muted-foreground">Lowest Price</div>
+                            <FormattedMoney copper={item.lowest_price} />
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Highest Price</div>
+                            <FormattedMoney copper={item.highest_price} />
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Quantity Available</div>
+                            <span>{item.quantity}</span>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Avg. of Lowest 5</div>
+                            <FormattedMoney copper={item.average_lowest_five} />
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Item Rating</div>
+                            <span className="font-medium">
+                              {item.rating.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <div className="text-muted-foreground">Average Item Value</div>
-                  <FormattedMoney copper={comparison.value_per_item} />
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Total Market Value</div>
-                  <FormattedMoney copper={comparison.total_value} />
-                </div>
-              </div>
+              )}
             </div>
           );
         })}

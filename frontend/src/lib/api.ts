@@ -44,9 +44,20 @@ export interface GroupDetail extends GroupBase {
 export interface RealmData {
   id: number;
   name: string;
-  language: string;  // Changed from region to match backend
+  language: string;
+  population_type: 'Full' | 'High' | 'Medium' | 'Low';
   item_count: number;
   last_updated: string;
+}
+
+export interface ItemPriceDetails {
+  item_id: number;
+  item_name: string;
+  lowest_price: number;
+  highest_price: number;
+  quantity: number;
+  average_lowest_five: number;
+  rating: number;
 }
 
 export interface PriceMetrics {
@@ -64,6 +75,8 @@ export interface RealmComparison {
   realm_id: number;
   total_value: number;
   value_per_item: number;
+  rating: number;
+  items: ItemPriceDetails[];
 }
 
 class APIClient {

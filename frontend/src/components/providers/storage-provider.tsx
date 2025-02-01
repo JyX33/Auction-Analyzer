@@ -3,14 +3,14 @@
 import {
   selectedItemIdsAtom,
   selectedRealmIdsAtom,
-  selectedRealmCategoryAtom,
+  selectedLanguagesAtom,
   timeRangeAtom,
 } from '@/lib/store';
 import { useAtom } from 'jotai';
 import { useEffect, useRef } from 'react';
 
 function useLocalStorage(isMounted: boolean) {
-  const [selectedRegion, setSelectedRegion] = useAtom(selectedRealmCategoryAtom);
+  const [selectedLanguages, setSelectedLanguages] = useAtom(selectedLanguagesAtom);
   const [selectedRealmIds, setSelectedRealmIds] = useAtom(selectedRealmIdsAtom);
   const [selectedItemIds, setSelectedItemIds] = useAtom(selectedItemIdsAtom);
   const [timeRange, setTimeRange] = useAtom(timeRangeAtom);
@@ -26,9 +26,9 @@ function useLocalStorage(isMounted: boolean) {
         return value ? JSON.parse(value) : null;
       };
 
-      const region = loadFromStorage('selectedRegion');
-      if (typeof region === 'string') {
-        setSelectedRegion(region);
+      const languages = loadFromStorage('selectedLanguages');
+      if (Array.isArray(languages) && languages.every(lang => typeof lang === 'string')) {
+        setSelectedLanguages(languages);
       }
 
       const realmIds = loadFromStorage('selectedRealmIds');
@@ -50,21 +50,21 @@ function useLocalStorage(isMounted: boolean) {
     }
 
     initialized.current = true;
-  }, [setSelectedRegion, setSelectedRealmIds, setSelectedItemIds, setTimeRange, isMounted]);
+  }, [setSelectedLanguages, setSelectedRealmIds, setSelectedItemIds, setTimeRange, isMounted]);
 
   // Save to localStorage
   useEffect(() => {
     if (!isMounted || !initialized.current || typeof window === 'undefined') return;
 
     try {
-      localStorage.setItem('selectedRegion', JSON.stringify(selectedRegion));
+      localStorage.setItem('selectedLanguages', JSON.stringify(selectedLanguages));
       localStorage.setItem('selectedRealmIds', JSON.stringify(selectedRealmIds));
       localStorage.setItem('selectedItemIds', JSON.stringify(Array.from(selectedItemIds)));
       localStorage.setItem('timeRange', JSON.stringify(timeRange));
     } catch (error) {
       console.error('Error saving to localStorage:', error);
     }
-  }, [selectedRegion, selectedRealmIds, selectedItemIds, timeRange, isMounted]);
+  }, [selectedLanguages, selectedRealmIds, selectedItemIds, timeRange, isMounted]);
 }
 
 interface StorageProviderProps {

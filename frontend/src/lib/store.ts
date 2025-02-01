@@ -1,10 +1,12 @@
+"use client";
+
 import { atom, createStore } from 'jotai';
 import { apiClient, type RealmData, type PriceMetrics, type RealmComparison } from './api';
 
 const store = createStore();
 
 // Atoms with default values for SSR
-export const selectedRealmCategoryAtom = atom<string>('French');
+export const selectedLanguagesAtom = atom<string[]>(['English', 'French', 'German', 'Spanish', 'Portuguese', 'Italian']); // All except Russian
 export const selectedRealmIdsAtom = atom<number[]>([]);
 export const selectedItemIdsAtom = atom<Set<number>>(new Set<number>());
 export const isItemSelectedAtom = atom(
@@ -65,6 +67,22 @@ export const selectedRealmsAtom = atom(
   }
 );
 
+export const realmsByLanguageAtom = atom(
+  (get) => {
+    const realms = get(realmsAtom);
+    const selectedLanguages = get(selectedLanguagesAtom);
+    return realms
+      .filter(realm => selectedLanguages.includes(realm.language))
+      .reduce((acc, realm) => {
+        if (!acc[realm.language]) {
+          acc[realm.language] = [];
+        }
+        acc[realm.language].push(realm);
+        return acc;
+      }, {} as Record<string, RealmData[]>);
+  }
+);
+
 export const sortedRealmComparisonAtom = atom(
   (get) => {
     const comparison = get(realmComparisonAtom);
@@ -76,13 +94,17 @@ export const sortedRealmComparisonAtom = atom(
 export const fetchRealmsAtom = atom(
   null,
   async (get, set) => {
-    const realm_category = get(selectedRealmCategoryAtom);
     set(isLoadingAtom, true);
     set(errorAtom, null);
 
     try {
-      const realms = await apiClient.getRealms(realm_category);
+      const realms = await apiClient.getRealms();
       set(realmsAtom, realms);
+      // Select all realms by default
+      set(selectedRealmIdsAtom, realms
+        .filter(realm => get(selectedLanguagesAtom).includes(realm.language))
+        .map(realm => realm.id)
+      );
     } catch (error) {
       set(errorAtom, error instanceof Error ? error.message : 'Failed to fetch realms');
     } finally {
