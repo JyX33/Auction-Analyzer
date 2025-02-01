@@ -1,13 +1,13 @@
 'use client';
 
-import { useAtom } from 'jotai';
-import { useEffect, useRef } from 'react';
 import {
-  selectedRegionAtom,
-  selectedRealmIdsAtom,
   selectedItemIdsAtom,
+  selectedRealmIdsAtom,
+  selectedRegionAtom,
   timeRangeAtom,
 } from '@/lib/store';
+import { useAtom } from 'jotai';
+import { useEffect, useRef } from 'react';
 
 function useLocalStorage(isMounted: boolean) {
   const [selectedRegion, setSelectedRegion] = useAtom(selectedRegionAtom);
@@ -38,7 +38,7 @@ function useLocalStorage(isMounted: boolean) {
 
       const itemIds = loadFromStorage('selectedItemIds');
       if (Array.isArray(itemIds) && itemIds.every(id => typeof id === 'number')) {
-        setSelectedItemIds(itemIds);
+        setSelectedItemIds(new Set(itemIds));
       }
 
       const time = loadFromStorage('timeRange');
@@ -59,7 +59,7 @@ function useLocalStorage(isMounted: boolean) {
     try {
       localStorage.setItem('selectedRegion', JSON.stringify(selectedRegion));
       localStorage.setItem('selectedRealmIds', JSON.stringify(selectedRealmIds));
-      localStorage.setItem('selectedItemIds', JSON.stringify(selectedItemIds));
+      localStorage.setItem('selectedItemIds', JSON.stringify(Array.from(selectedItemIds)));
       localStorage.setItem('timeRange', JSON.stringify(timeRange));
     } catch (error) {
       console.error('Error saving to localStorage:', error);

@@ -3,6 +3,7 @@
 import { Provider } from 'jotai';
 import { RealmSelect } from '@/components/realm/realm-select';
 import { PriceComparison } from '@/components/realm/price-comparison';
+import { ItemSelect } from '@/components/item/item-select';
 
 export default function Home() {
   return (
@@ -15,9 +16,7 @@ export default function Home() {
           </div>
           <div className="rounded-lg border bg-card">
             <h2 className="p-4 font-semibold border-b">Item Selection</h2>
-            <div className="p-4 text-muted-foreground text-sm">
-              Item selection coming soon...
-            </div>
+            <ItemSelect />
           </div>
         </div>
         <div className="rounded-lg border bg-card">

@@ -4,9 +4,47 @@ import { apiClient, type RealmData, type PriceMetrics, type RealmComparison } fr
 const store = createStore();
 
 // Atoms with default values for SSR
-export const selectedRegionAtom = atom<string>('eu');
+export const selectedRegionAtom = atom<string>('French');
 export const selectedRealmIdsAtom = atom<number[]>([]);
-export const selectedItemIdsAtom = atom<number[]>([]);
+export const selectedItemIdsAtom = atom<Set<number>>(new Set<number>());
+export const isItemSelectedAtom = atom(
+  (get) => (id: number) => get(selectedItemIdsAtom).has(id)
+);
+export const selectedItemsCountAtom = atom(
+  (get) => get(selectedItemIdsAtom).size
+);
+
+// Actions
+export const toggleItemSelectionAtom = atom(
+  null,
+  (get, set, id: number) => {
+    const selected = get(selectedItemIdsAtom);
+    const newSelected = new Set(selected);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    set(selectedItemIdsAtom, newSelected);
+  }
+);
+
+export const bulkSelectItemsAtom = atom(
+  null,
+  (get, set, ids: number[]) => {
+    const selected = get(selectedItemIdsAtom);
+    const newSelected = new Set(selected);
+    ids.forEach(id => newSelected.add(id));
+    set(selectedItemIdsAtom, newSelected);
+  }
+);
+
+export const clearSelectionAtom = atom(
+  null,
+  (get, set) => {
+    set(selectedItemIdsAtom, new Set());
+  }
+);
 export const timeRangeAtom = atom<'7d' | '30d' | 'all'>('7d');
 
 // UI state atoms
@@ -56,7 +94,7 @@ export const fetchRealmsAtom = atom(
 export const fetchPriceMetricsAtom = atom(
   null,
   async (get, set, realmId: number) => {
-    const itemIds = get(selectedItemIdsAtom);
+    const itemIds = Array.from(get(selectedItemIdsAtom));
     const timeRange = get(timeRangeAtom);
     set(isLoadingAtom, true);
     set(errorAtom, null);
@@ -76,7 +114,7 @@ export const compareRealmsAtom = atom(
   null,
   async (get, set) => {
     const realmIds = get(selectedRealmIdsAtom);
-    const itemIds = get(selectedItemIdsAtom);
+    const itemIds = Array.from(get(selectedItemIdsAtom));
     set(isLoadingAtom, true);
     set(errorAtom, null);
 
