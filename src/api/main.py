@@ -497,10 +497,10 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
     # Population type weight factors F(s)
     POPULATION_WEIGHTS = {
         "Full": 1.0,
-        "High": 0.9,
-        "Medium": 0.8,
-        "Low": 0.7,
-        "New": 0.6
+        "High": 0.8,
+        "Medium": 0.5,
+        "Low": 0.4,
+        "New": 0.85
     }
     
     # Validate realms exist
