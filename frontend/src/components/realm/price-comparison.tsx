@@ -43,6 +43,7 @@ function PopulationBadge({ type }: { type: string }) {
     High: "bg-orange-100 text-orange-800",
     Medium: "bg-yellow-100 text-yellow-800",
     Low: "bg-green-100 text-green-800",
+    'New Players': "bg-blue-100 text-blue-800",
   }[type] || "bg-gray-100 text-gray-800";
 
   return (
@@ -111,18 +112,23 @@ export function PriceComparison() {
                  <PopulationBadge type={realm.population_type} />
                </div>
                <div className="flex items-center gap-2">
-                 {isHighest ? (
-                   <ArrowUp className="text-green-500" />
-                 ) : isLowest ? (
-                   <ArrowDown className="text-red-500" />
-                 ) : null}
-                 <span className={`text-sm font-medium ${
-                   isHighest ? "text-green-500" :
-                   isLowest ? "text-red-500" :
-                   "text-muted-foreground"
-                 }`}>
-                   Rank #{index + 1}
-                 </span>
+                 <div className="flex items-center gap-2">
+                   {isHighest ? (
+                     <ArrowUp className="text-green-500" />
+                   ) : isLowest ? (
+                     <ArrowDown className="text-red-500" />
+                   ) : null}
+                   <span className={`text-sm font-medium ${
+                     isHighest ? "text-green-500" :
+                     isLowest ? "text-red-500" :
+                     "text-muted-foreground"
+                   }`}>
+                     Market Rank #{index + 1}
+                   </span>
+                   <span className="text-sm text-muted-foreground">
+                     (Rating: {comparison.rating.toFixed(2)})
+                   </span>
+                 </div>
                </div>
              </div>
 
@@ -142,7 +148,7 @@ export function PriceComparison() {
                    isLowest ? "text-red-500" :
                    "text-muted-foreground"
                  }`}>
-                   {comparison.rating.toFixed(2)}
+                   {comparison.rating.toFixed(0)}
                  </span>
                </div>
              </div>
@@ -174,7 +180,7 @@ export function PriceComparison() {
                           <div>
                             <div className="text-muted-foreground">Item Rating</div>
                             <span className="font-medium">
-                              {item.rating.toFixed(2)}
+                              {item.rating.toFixed(0)}
                             </span>
                           </div>
                         </div>

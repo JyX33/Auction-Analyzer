@@ -1,7 +1,7 @@
 "use client";
 
 import { atom, createStore } from 'jotai';
-import { apiClient, type RealmData, type PriceMetrics, type RealmComparison } from './api';
+import { apiClient, type RealmData, type PriceMetrics, type RealmComparison, type ItemBase } from './api';
 
 const store = createStore();
 
@@ -55,8 +55,25 @@ export const errorAtom = atom<string | null>(null);
 
 // Data atoms
 export const realmsAtom = atom<RealmData[]>([]);
+export const itemsAtom = atom<ItemBase[]>([]);
 export const priceMetricsAtom = atom<Record<number, PriceMetrics>>({});
 export const realmComparisonAtom = atom<RealmComparison[]>([]);
+
+// Fetching actions
+export const fetchItemsAtom = atom(
+  null,
+  async (get, set) => {
+    set(isLoadingAtom, true);
+    try {
+      const response = await apiClient.listItems({ page_size: 100 });
+      set(itemsAtom, response.items);
+    } catch (error) {
+      set(errorAtom, error instanceof Error ? error.message : 'Failed to fetch items');
+    } finally {
+      set(isLoadingAtom, false);
+    }
+  }
+);
 
 // Derived atoms
 export const selectedRealmsAtom = atom(

@@ -500,7 +500,7 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
         "High": 0.8,
         "Medium": 0.5,
         "Low": 0.4,
-        "New": 0.85
+        "New Players": 0.85
     }
     
     # Validate realms exist

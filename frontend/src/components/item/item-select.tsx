@@ -1,88 +1,144 @@
-import { useAtom } from 'jotai'
-import { useState } from 'react'
-import { Button } from '../ui/button'
-import { Input } from '../ui/input'
-import { apiClient, type ItemBase } from '@/lib/api'
-import { selectedRealmIdsAtom, selectedItemIdsAtom, compareRealmsAtom } from '@/lib/store'
-import { LoadingSpinner } from '../ui/loading-spinner'
+"use client";
 
-export function ItemSelect() {
-  const [selectedRealms] = useAtom(selectedRealmIdsAtom)
-  const [selectedItems, setSelectedItems] = useAtom(selectedItemIdsAtom)
-  const [, compareRealms] = useAtom(compareRealmsAtom)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [searchResults, setSearchResults] = useState<ItemBase[]>([])
-  const [addingItem, setAddingItem] = useState<number | null>(null)
+import { useAtom } from "jotai";
+import { useEffect, useState } from "react";
+import {
+  selectedItemIdsAtom,
+  itemsAtom,
+  fetchItemsAtom,
+  isLoadingAtom,
+} from "@/lib/store";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Check, ChevronDown } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ItemBase } from "@/lib/api";
 
-  const handleSearch = async () => {
-    setIsLoading(true)
-    try {
-      const response = await apiClient.listItems({ 
-        page: 1,
-        page_size: 10,
-        item_class_name: searchQuery 
-      })
-      setSearchResults(response.items)
-    } catch (error) {
-      alert(`Failed to search items: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setIsLoading(false)
+interface ItemSelectProps {
+  compact?: boolean;
+}
+
+export function ItemSelect({ compact }: ItemSelectProps) {
+  const [selectedItemIds, setSelectedItemIds] = useAtom(selectedItemIdsAtom);
+  const [items] = useAtom(itemsAtom);
+  const [isLoading] = useAtom(isLoadingAtom);
+  const [, fetchItems] = useAtom(fetchItemsAtom);
+  const [search, setSearch] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
+
+  const filteredItems = items.filter((item: ItemBase) =>
+    item.item_name.toLowerCase().includes(search.toLowerCase()) ||
+    item.item_class_name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const itemsByClass = filteredItems.reduce((acc: Record<string, ItemBase[]>, item: ItemBase) => {
+    if (!acc[item.item_class_name]) {
+      acc[item.item_class_name] = [];
     }
+    acc[item.item_class_name].push(item);
+    return acc;
+  }, {});
+
+  const SelectionContent = () => (
+    <div className="space-y-4">
+      {Object.entries(itemsByClass).map(([className, items]) => (
+        <div key={className}>
+          <div className="text-sm font-medium mb-2">{className}</div>
+          <div className="grid gap-2">
+            {items.map((item) => (
+              <button
+                key={item.item_id}
+                onClick={() => {
+                  const newSelected = new Set(selectedItemIds);
+                  if (newSelected.has(item.item_id)) {
+                    newSelected.delete(item.item_id);
+                  } else {
+                    newSelected.add(item.item_id);
+                  }
+                  setSelectedItemIds(newSelected);
+                }}
+                className={`flex items-center justify-between p-2 text-left border rounded-lg transition-colors
+                  ${
+                    selectedItemIds.has(item.item_id)
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:bg-accent"
+                  }`}
+              >
+                <span className="flex flex-col">
+                  <span className="font-medium">{item.item_name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.item_subclass_name}
+                  </span>
+                </span>
+                {selectedItemIds.has(item.item_id) && (
+                  <Check className="h-4 w-4 text-primary" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <LoadingSpinner />
+      </div>
+    );
   }
 
-  const handleAddToRealm = async (itemId: number) => {
-    if (selectedRealms.length === 0) return
-    setAddingItem(itemId)
-    try {
-      // Add item to selected items
-      const newSelectedItems = new Set(selectedItems);
-      newSelectedItems.add(itemId);
-      setSelectedItems(newSelectedItems);
-      
-      // Trigger realm comparison
-      await compareRealms();
-      
-      setSearchResults([]);
-    } catch (error) {
-      alert(`Failed to add item: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setAddingItem(null);
-    }
+  if (compact) {
+    return (
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="outline"
+            size="default"
+            className="w-full justify-between"
+            role="combobox"
+          >
+            <span>Select Items</span>
+            <ChevronDown className="w-4 h-4 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[400px] p-4" align="start">
+          <div className="space-y-4">
+            <Input
+              type="search"
+              placeholder="Search items..."
+              className="w-full"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoComplete="off"
+            />
+            <SelectionContent />
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        <Input
-          placeholder="Search items..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <Button onClick={handleSearch} disabled={isLoading}>
-          Search
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center"><LoadingSpinner /></div>
-      ) : (
-        searchResults.length > 0 && (
-          <ul className="border rounded-md">
-            {searchResults.map((item) => (
-              <li key={item.item_id} className="py-2 px-4 border-b last:border-b-0 flex justify-between items-center">
-                <span>{item.item_name}</span>
-                <Button
-                  onClick={() => handleAddToRealm(item.item_id)}
-                  disabled={addingItem === item.item_id}
-                >
-                  {addingItem === item.item_id ? "Adding..." : "Add to Realm"}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )
-      )}
+    <div className="grid gap-4 p-4">
+      <Input
+        type="search"
+        placeholder="Search items..."
+        className="w-full"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <SelectionContent />
     </div>
-  )
+  );
 }
