@@ -5,7 +5,8 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from src.database.models import Item, Group
+from sqlalchemy import func, and_
+from src.database.models import Item, Group, ConnectedRealm, Auction
 from src.database.operations import get_db
 from pydantic import BaseModel
 
@@ -188,9 +189,6 @@ async def list_items_in_group(group_id: int, db: Session = Depends(get_db)):
 @app.get("/api/v1/realms", response_model=List[RealmData])
 async def get_realms(language: Optional[str] = 'French', db: Session = Depends(get_db)):
     """Get list of realms, optionally filtered by language category."""
-    from src.database.models import ConnectedRealm, Auction
-    from sqlalchemy import func
-    
     # Start with base query
     query = db.query(
         ConnectedRealm.id,
@@ -227,24 +225,122 @@ async def get_realms(language: Optional[str] = 'French', db: Session = Depends(g
 async def get_realm_prices(
     realm_id: int,
     item_ids: str = Query(..., description="Comma-separated list of item IDs"),
-    time_range: str = Query("7d", description="Time range for price data"),
+    time_range: str = Query("7d", description="Time range for price data (e.g., 1d, 7d, 30d)"),
     db: Session = Depends(get_db)
 ):
     """Get price metrics for items in a specific realm."""
-    # TODO: Implement actual price data fetching from database
-    # This is a placeholder implementation
+    from datetime import datetime, timedelta
+    
+    # Validate realm exists
+    realm = db.query(ConnectedRealm).filter(ConnectedRealm.id == realm_id).first()
+    if not realm:
+        raise HTTPException(status_code=404, detail="Realm not found")
+    
+    # Parse and validate item IDs
+    try:
+        item_id_list = [int(id.strip()) for id in item_ids.split(",")]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid item ID format")
+    
+    # Validate items exist
+    existing_items = db.query(Item.item_id).filter(Item.item_id.in_(item_id_list)).all()
+    existing_item_ids = {item[0] for item in existing_items}
+    if not existing_item_ids:
+        raise HTTPException(status_code=404, detail="No valid items found")
+    
+    # Parse time range
+    try:
+        days = int(time_range[:-1])
+        if time_range[-1] != 'd' or days < 1:
+            raise ValueError
+        start_date = datetime.utcnow() - timedelta(days=days)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid time range format. Use Nd where N is number of days")
+    
+    # Query base for auctions within time range and realm
+    base_query = db.query(Auction).filter(
+        and_(
+            Auction.connected_realm_id == realm_id,
+            Auction.item_id.in_(existing_item_ids),
+            Auction.last_modified >= start_date,
+            Auction.buyout_price > 0  # Exclude invalid prices
+        )
+    )
+    
+    # Calculate current prices (average of most recent day)
+    recent_date = datetime.utcnow() - timedelta(days=1)
+    current_prices = {}
+    historical_stats = {}
+    
+    for item_id in existing_item_ids:
+        # Get recent auctions for price per unit calculation
+        recent_auctions = base_query.filter(
+            and_(
+                Auction.item_id == item_id,
+                Auction.last_modified >= recent_date
+            )
+        ).all()
+        
+        if recent_auctions:
+            # Calculate price per unit for each auction
+            prices_per_unit = [
+                auction.buyout_price / auction.quantity
+                for auction in recent_auctions
+            ]
+            current_price = sum(prices_per_unit) / len(prices_per_unit)
+            current_prices[item_id] = current_price
+            
+            # Calculate historical stats
+            historical_auctions = base_query.filter(Auction.item_id == item_id).all()
+            historical_prices = [
+                auction.buyout_price / auction.quantity
+                for auction in historical_auctions
+            ]
+            
+            if historical_prices:
+                historical_stats[item_id] = {
+                    "low": min(historical_prices),
+                    "high": max(historical_prices)
+                }
+    
+    if not current_prices:
+        raise HTTPException(status_code=404, detail="No recent auction data found")
+    
+    # Calculate average price across all items
+    average_price = sum(current_prices.values()) / len(current_prices)
+    
+    # Calculate price trend (comparing current to historical average)
+    # Calculate historical average price per item
+    historical_avg = 0
+    if current_prices:
+        item_averages = []
+        for item_id in current_prices.keys():
+            item_auctions = base_query.filter(Auction.item_id == item_id).all()
+            if item_auctions:
+                total_price = sum(auction.buyout_price / auction.quantity for auction in item_auctions)
+                avg_price = total_price / len(item_auctions)
+                item_averages.append(avg_price)
+        
+        if item_averages:
+            historical_avg = sum(item_averages) / len(item_averages)
+    
+    price_trend = (average_price / historical_avg) - 1 if historical_avg > 0 else 0
+    
+    # Prepare item details
+    item_details = [
+        {
+            "item_id": item_id,
+            "current_price": current_prices.get(item_id, 0),
+            "historical_low": historical_stats.get(item_id, {}).get("low", 0),
+            "historical_high": historical_stats.get(item_id, {}).get("high", 0)
+        }
+        for item_id in existing_item_ids
+    ]
+    
     return PriceMetrics(
-        average_price=100.0,
-        price_trend=1.5,
-        item_details=[
-            {
-                "item_id": int(id),
-                "current_price": 100.0,
-                "historical_low": 90.0,
-                "historical_high": 110.0
-            }
-            for id in item_ids.split(",")
-        ]
+        average_price=average_price,
+        price_trend=price_trend,
+        item_details=item_details
     )
 
 @app.post("/api/v1/comparison", response_model=List[RealmComparison])

@@ -16,10 +16,9 @@ SYNC_DATABASE_URL = DATABASE_URL.replace("+aiosqlite", "")
 def get_sync_engine():
     """Create and return synchronous database engine."""
     return create_engine(
-        SYNC_DATABASE_URL,
-        echo=False,  # SQL query logging
-        future=True
+        SYNC_DATABASE_URL, echo=False, future=True  # SQL query logging
     )
+
 
 async def get_engine() -> AsyncEngine:
     """Create and return async database engine."""
@@ -28,7 +27,25 @@ async def get_engine() -> AsyncEngine:
     )
 
 
-def initialize_database():
+async def initialize_database():
+    """Initialize database with async support."""
+    # Create database if it doesn't exist (using sync engine temporarily)
+    sync_url = DATABASE_URL.replace("+aiosqlite", "")
+    if not database_exists(sync_url):
+        create_database(sync_url)
+        logging.info(f"Created database at {sync_url}")
+
+    # Initialize schema using async engine
+    engine = await get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        logging.info("Database schema created successfully")
+
+    await engine.dispose()
+    logging.info("Database initialization complete")
+
+
+def initialize_sync_database():
     """Initialize database with sync support."""
     # Create database if it doesn't exist
     if not database_exists(SYNC_DATABASE_URL):
@@ -44,4 +61,6 @@ def initialize_database():
 
 
 if __name__ == "__main__":
-    initialize_database()
+    import asyncio
+
+    asyncio.run(initialize_database())

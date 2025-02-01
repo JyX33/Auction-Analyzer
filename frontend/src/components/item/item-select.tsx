@@ -2,35 +2,46 @@ import { useAtom } from 'jotai'
 import { useState } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { api } from '@/lib/api'
-import { selectedGroupAtom } from '@/lib/store'
+import { apiClient, type ItemBase } from '@/lib/api'
+import { selectedRealmIdsAtom } from '@/lib/store'
+import { LoadingSpinner } from '../ui/loading-spinner'
 
 export function ItemSelect() {
-  const [selectedGroup, setSelectedGroup] = useAtom(selectedGroupAtom)
+  const [selectedRealms] = useAtom(selectedRealmIdsAtom)
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [searchResults, setSearchResults] = useState<ItemBase[]>([])
+  const [addingItem, setAddingItem] = useState<number | null>(null)
 
   const handleSearch = async () => {
     setIsLoading(true)
     try {
-      const response = await api.get('/items', {
-        params: { search: searchQuery }
+      const response = await apiClient.listItems({ 
+        page: 1,
+        page_size: 10,
+        item_class_name: searchQuery 
       })
-      // TODO: Handle search results
+      setSearchResults(response.items)
+    } catch (error) {
+      alert(`Failed to search items: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleAddToGroup = async (itemId: number) => {
-    if (!selectedGroup) return
+  const handleAddToRealm = async (itemId: number) => {
+    if (selectedRealms.length === 0) return
+    setAddingItem(itemId)
     try {
-      await api.post(`/groups/${selectedGroup}/items`, {
-        item_ids: [itemId]
-      })
-      // TODO: Handle success
+      await Promise.all(selectedRealms.map(realmId => 
+        apiClient.getRealmPrices(realmId, [itemId])
+      ))
+      alert('Item added to selected realms!')
+      setSearchResults([])
     } catch (error) {
-      // TODO: Handle error
+      alert(`Failed to add item: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setAddingItem(null)
     }
   }
 
@@ -47,7 +58,25 @@ export function ItemSelect() {
         </Button>
       </div>
 
-      {/* TODO: Render search results */}
+      {isLoading ? (
+        <div className="flex justify-center"><LoadingSpinner /></div>
+      ) : (
+        searchResults.length > 0 && (
+          <ul className="border rounded-md">
+            {searchResults.map((item) => (
+              <li key={item.item_id} className="py-2 px-4 border-b last:border-b-0 flex justify-between items-center">
+                <span>{item.item_name}</span>
+                <Button
+                  onClick={() => handleAddToRealm(item.item_id)}
+                  disabled={addingItem === item.item_id}
+                >
+                  {addingItem === item.item_id ? "Adding..." : "Add to Realm"}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
     </div>
   )
 }
