@@ -4,7 +4,7 @@ SQLAlchemy models for database entities.
 
 from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Text, ForeignKey, String, DateTime
+from sqlalchemy import Column, Integer, Text, ForeignKey, String, DateTime, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 Base = declarative_base()
@@ -48,6 +48,8 @@ class ConnectedRealm(Base):
     connected_realm_id = Column(Integer, unique=True, nullable=False)
     name = Column(String, nullable=False)
     population_type = Column(String)
+    population = Column(Integer)  # Stores the population value as integer
+    logs = Column(Integer)  # Stores logs value as integer
     realm_category = Column(String)
     status = Column(String)
     last_updated = Column(DateTime, default=datetime.utcnow)
@@ -61,11 +63,15 @@ class Auction(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     auction_id = Column(Integer, nullable=False)
     connected_realm_id = Column(Integer, ForeignKey('connected_realms.id'), nullable=False)
+    __table_args__ = (
+        UniqueConstraint('auction_id', 'connected_realm_id', name='idx_auction_id_realm_id'),
+    )
     item_id = Column(Integer, ForeignKey('items.item_id'), nullable=False)
     buyout_price = Column(Integer)
     quantity = Column(Integer, nullable=False)
     time_left = Column(String)
     last_modified = Column(DateTime, nullable=False)
+    active = Column(Boolean, default=True, nullable=False, index=True)
 
     connected_realm = relationship('ConnectedRealm', back_populates='auctions')
     item = relationship('Item', backref='auctions')

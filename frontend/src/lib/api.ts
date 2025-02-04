@@ -46,6 +46,7 @@ export interface RealmData {
   name: string;
   language: string;
   population_type: 'Full' | 'High' | 'Medium' | 'Low';
+  population?: string;  // Optional population count like "332k+"
   item_count: number;
   last_updated: string;
 }

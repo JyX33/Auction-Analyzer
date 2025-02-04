@@ -210,3 +210,12 @@
 - API request handling
 - Concurrent user support
 - Data volume management
+
+## Development Environment and Execution
+
+- A dedicated Python virtual environment is used to isolate dependencies.
+- Use the "uv" command to invoke Python commands in Powershell on Windows.
+- Ensure the virtual environment is activated prior to running backend services.
+- Example command to start the backend:
+  - uv run src/api/main.py
+- The isolated environment ensures consistency and avoids dependency conflicts.

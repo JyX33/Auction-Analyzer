@@ -1,0 +1,157 @@
+[
+    { "realm_name": "Silvermoon", "characters_number": "332k+" },
+    { "realm_name": "Draenor", "characters_number": "308k+" },
+    { "realm_name": "Dentarg, Tarren-Mill", "characters_number": "291k+" },
+    { "realm_name": "Kazzak", "characters_number": "264k+" },
+    { "realm_name": "Blackhand, Echsenkessel, Malganis, Taerar", "characters_number": "235k+" },
+    { "realm_name": "Twisting-Nether", "characters_number": "219k+" },
+    { "realm_name": "Hyjal", "characters_number": "205k+" },
+    { "realm_name": "Blackmoore, Lordaeron, Tichondrius", "characters_number": "184k+" },
+    { "realm_name": "Ravencrest", "characters_number": "168k+" },
+    { "realm_name": "Antonidas", "characters_number": "160k+" },
+    { "realm_name": "Argent-Dawn", "characters_number": "157k+" },
+    { "realm_name": "Sanguino, Shendralar, Uldum, Zuljin", "characters_number": "157k+" },
+    { "realm_name": "Howling-Fjord", "characters_number": "154k+" },
+    { "realm_name": "Blackrock", "characters_number": "138k+" },
+    { "realm_name": "Ragnaros", "characters_number": "134k+" },
+    { "realm_name": "Gordunni", "characters_number": "132k+" },
+    { "realm_name": "Ambossar, Kargath, Thrall", "characters_number": "120k+" },
+    { "realm_name": "Chogall, Dalaran, EldreThalas, Marécage-de-Zangar, Sinstralis", "characters_number": "100k+" },
+    { "realm_name": "Sanguino, Shendralar, Uldum, Zuljin", "characters_number": "98k+" },
+    { "realm_name": "Stormscale", "characters_number": "97k+" },
+    { "realm_name": "AlAkir, Burning-Legion, Skullcrusher, Xavius", "characters_number": "90k+" },
+    { "realm_name": "Archimonde", "characters_number": "82k+" },
+    { "realm_name": "Doomhammer, Turalyon", "characters_number": "81k+" },
+    { "realm_name": "Eredar", "characters_number": "72k+" },
+    { "realm_name": "Ysondre", "characters_number": "72k+" },
+    { "realm_name": "Auchindoun, Dunemaul, Jaedenar, Sylvanas", "characters_number": "70k+" },
+    {
+      "realm_name": "Confrérie-du-Thorium, Conseil-des-Ombres, Culte-de-la-Rive-noire, Kirin-Tor, La-Croisade-écarlate, Les-Clairvoyants, Les-Sentinelles",
+      "characters_number": "67k+"
+    },
+    { "realm_name": "CThun, Dun-Modr", "characters_number": "67k+" },
+    {
+      "realm_name": "Darkmoon-Faire, Defias-Brotherhood, Earthen-Ring, Ravenholdt, Scarshield-Legion, Sporeggar, The-Venture-Co",
+      "characters_number": "63k+"
+    },
+    { "realm_name": "Arathor, Hellfire, Kilrogg, Nagrand, Runetotem", "characters_number": "63k+" },
+    { "realm_name": "Soulflayer", "characters_number": "57k+" },
+    { "realm_name": "Aggra-(Português), Frostmane, Grim-Batol", "characters_number": "55k+" },
+    { "realm_name": "Outland", "characters_number": "53k+" },
+    { "realm_name": "Dun-Morogh, Norgannon", "characters_number": "52k+" },
+    { "realm_name": "Garrosh, Nozdormu, Perenolde, Shattrath, Teldrassil", "characters_number": "51k+" },
+    {
+      "realm_name": "Bloodfeather, Burning-Steppes, Darkspear, Executus, Korgall, Saurfang, Shattered-Hand, Terokkar",
+      "characters_number": "50k+"
+    },
+    {
+      "realm_name": "Der-Mithrilorden, Der-Rat-von-Dalaran, Die-Nachtwache, Forscherliga, Todeswache, Zirkel-des-Cenarius",
+      "characters_number": "49k+"
+    },
+    {
+      "realm_name": "Deathwing, Dragonblight, Ghostlands, Karazhan, Lightnings-Blade, The-Maelstrom",
+      "characters_number": "48k+"
+    },
+    { "realm_name": "Khaz-Modan", "characters_number": "41k+" },
+    { "realm_name": "QuelThalas", "characters_number": "38k+" },
+    { "realm_name": "Nemesis", "characters_number": "38k+" },
+    {
+      "realm_name": "Arthas, Blutkessel, Durotan, KelThuzad, Tirion, Veklor, Wrathbringer",
+      "characters_number": "37k+"
+    },
+    {
+      "realm_name": "Amanthul, Anubarak, Dalvengyr, Frostmourne, Nazjatar, Zuluhed",
+      "characters_number": "37k+"
+    },
+    {
+      "realm_name": "Aerie-Peak, Blades-Edge, Bronzebeard, Eonar, Veknilash",
+      "characters_number": "36k+"
+    },
+    {
+      "realm_name": "Alexstrasza, Madmortem, Nethersturm, Proudmoore",
+      "characters_number": "36k+"
+    },
+    {
+      "realm_name": "Destromath, Gilneas, Gorgonnash, Mannoroth, Nefarian, Nerathor, Ulduar",
+      "characters_number": "36k+"
+    },
+    { "realm_name": "Alleria, Rexxar", "characters_number": "36k+" },
+    { "realm_name": "Pozzo-dellEternità", "characters_number": "34k+" },
+    {
+      "realm_name": "Das-Konsortium, Das-Syndikat, Der-Abyssische-Rat, Die-Arguswacht, Die-Silberne-Hand, Die-Todeskrallen, Die-ewige-Wacht, Kult-der-Verdammten",
+      "characters_number": "33k+"
+    },
+    {
+      "realm_name": "Dragonmaw, Haomarush, Spinebreaker, Stormreaver, Vashj",
+      "characters_number": "33k+"
+    },
+    {
+      "realm_name": "DrekThar, Eitrigg, Krasus, Uldaman",
+      "characters_number": "33k+"
+    },
+    { "realm_name": "Magtheridon", "characters_number": "32k+" },
+    { "realm_name": "Malfurion, Malygos", "characters_number": "31k+" },
+    { "realm_name": "Elune, Varimathras", "characters_number": "31k+" },
+    {
+      "realm_name": "Blackscar, Booty-Bay, Borean-Tundra, Deathweaver, Grom, Thermaplugg",
+      "characters_number": "31k+"
+    },
+    { "realm_name": "Azshara, Baelgun, Kragjin, Lothar", "characters_number": "30k+" },
+    {
+      "realm_name": "Bladefist, Darksorrow, Frostwhisper, Genjuros, Neptulon, Zenedar",
+      "characters_number": "28k+"
+    },
+    { "realm_name": "Frostwolf", "characters_number": "28k+" },
+    {
+      "realm_name": "AhnQiraj, Balnazzar, Boulderfist, Chromaggus, Daggerspine, Laughing-Skull, Shattered-Halls, Sunstrider, Talnivarr, Trollbane",
+      "characters_number": "27k+"
+    },
+    { "realm_name": "Colinas-Pardas, Los-Errantes, Tyrande", "characters_number": "27k+" },
+    { "realm_name": "Aegwynn", "characters_number": "23k+" },
+    { "realm_name": "Emerald-Dream, Terenas", "characters_number": "23k+" },
+    { "realm_name": "Eversong", "characters_number": "22k+" },
+    { "realm_name": "Die-Aldor", "characters_number": "22k+" },
+    { "realm_name": "Exodar, Minahonda", "characters_number": "22k+" },
+    { "realm_name": "Thunderhorn, Wildhammer", "characters_number": "21k+" },
+    { "realm_name": "Aszune, Shadowsong", "characters_number": "20k+" },
+    {
+      "realm_name": "Moonglade, Steamwheedle-Cartel, The-Shatar",
+      "characters_number": "20k+"
+    },
+    {
+      "realm_name": "Festung-der-Stürme, Guldan, Kiljaeden, Nathrezim, Rajaxx, Anetheron",
+      "characters_number": "19k+"
+    },
+    { "realm_name": "Aggramar, Hellscream", "characters_number": "19k+" },
+    { "realm_name": "Chamber-of-Aspects", "characters_number": "19k+" },
+    { "realm_name": "Garona, Nerzhul, Sargeras", "characters_number": "19k+" },
+    { "realm_name": "Arygos, Khazgoroth", "characters_number": "18k+" },
+    { "realm_name": "Area-52, Senjin, UnGoro", "characters_number": "18k+" },
+    { "realm_name": "Azuremyst, Stormrage", "characters_number": "17k+" },
+    {
+      "realm_name": "Dethecus, Mughtol, Onyxia, Terrordar, Theradras",
+      "characters_number": "17k+"
+    },
+    {
+      "realm_name": "Arakarahm, Kaelthas, Rashgarroth, ThrokFeroth",
+      "characters_number": "17k+"
+    },
+    { "realm_name": "Alonsus, Anachronos, Kul-Tiras", "characters_number": "17k+" },
+    {
+      "realm_name": "Agamaggan, Bloodscalp, Crushridge, Emeriss, Hakkar, Twilights-Hammer",
+      "characters_number": "17k+"
+    },
+    { "realm_name": "Malorne, Ysera", "characters_number": "16k+" },
+    { "realm_name": "Bronze-Dragonflight, Nordrassil", "characters_number": "16k+" },
+    { "realm_name": "Deepholm, Galakrond, Razuvious", "characters_number": "15k+" },
+    { "realm_name": "Chants-éternels, Voljin", "characters_number": "15k+" },
+    { "realm_name": "Lightbringer, Mazrigos", "characters_number": "14k+" },
+    { "realm_name": "Bloodhoof, Khadgar", "characters_number": "14k+" },
+    { "realm_name": "Medivh, Suramar", "characters_number": "13k+" },
+    { "realm_name": "Goldrinn, Greymane, Lich-King", "characters_number": "12k+" },
+    { "realm_name": "Arathi, Illidan, Naxxramas, Temple-noir", "characters_number": "12k+" },
+    { "realm_name": "Fordragon", "characters_number": "9k+" },
+    { "realm_name": "Azuregos", "characters_number": "7k+" },
+    { "realm_name": "Ashenvale", "characters_number": "6k+" },
+    { "realm_name": "Deathguard", "characters_number": "4k+" }
+  ]

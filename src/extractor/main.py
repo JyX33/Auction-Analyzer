@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
+from sqlalchemy import and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.operations import (
@@ -18,6 +19,7 @@ from src.database.operations import (
     upsert_connected_realm,
     upsert_items,
 )
+from src.database.models import Auction
 
 from .api_client import BlizzardAPIClient
 
@@ -122,11 +124,27 @@ class ItemExtractor:
                 logging.info(f"No auctions found for realm {connected_realm_id}")
                 return True
 
-            # Process auctions with the same session
+            # Deactivate existing auctions for this realm
+            # Deactivate previous auctions for this connected realm
+            await session.execute(
+                update(Auction).where(
+                    and_(
+                        Auction.connected_realm_id == connected_realm_id,
+                        Auction.active.is_(True)
+                    )
+                ).values(active=False)
+            )
+            await session.commit()
+
+            # Process new auctions with active=True
             batch_size = 5000  # Increased batch size
             for i in range(0, len(auctions), batch_size):
                 batch = auctions[i: i + batch_size]
                 try:
+                    # Set active=True for all new auctions
+                    for auction in batch:
+                        auction["active"] = True
+                    
                     self.stats["auctions_processed"] += len(batch)
                     await upsert_auctions(batch)
                     self.stats["auctions_succeeded"] += len(batch)

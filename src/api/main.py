@@ -119,6 +119,7 @@ class RealmData(BaseModel):
     name: str
     language: str
     population_type: str
+    population: Optional[int] = None
     item_count: int
     last_updated: str
 
@@ -274,6 +275,7 @@ async def get_realms(
         ConnectedRealm.name,
         ConnectedRealm.realm_category.label("language"),
         ConnectedRealm.population_type,
+        ConnectedRealm.population,
         func.count(Auction.id).label("item_count"),
         func.max(ConnectedRealm.last_updated).label("last_updated"),
     ).outerjoin(Auction)
@@ -287,7 +289,8 @@ async def get_realms(
         ConnectedRealm.id,
         ConnectedRealm.name,
         ConnectedRealm.realm_category,
-        ConnectedRealm.population_type
+        ConnectedRealm.population_type,
+        ConnectedRealm.population,
     ).all()
 
     # Convert to RealmData objects
@@ -297,6 +300,7 @@ async def get_realms(
             name=r.name,
             language=r.language,
             population_type=r.population_type or "Medium",
+            population=r.population,
             item_count=r.item_count,
             last_updated=r.last_updated.isoformat() if r.last_updated else None,
         )
@@ -402,6 +406,7 @@ async def get_realm_prices(
             Auction.item_id.in_(existing_item_ids),
             Auction.last_modified >= start_date,
             Auction.buyout_price > 0,  # Exclude invalid prices
+            Auction.active,  # Only get active auctions
         )
     )
 
@@ -493,27 +498,29 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
     """Compare realms based on item prices and calculate realm ratings."""
     recent_date = datetime.utcnow() - timedelta(days=1)
     EPSILON = 1  # Small constant to avoid division by zero
-    
+
     # Population type weight factors F(s)
     POPULATION_WEIGHTS = {
         "Full": 1.0,
         "High": 0.8,
         "Medium": 0.5,
         "Low": 0.4,
-        "New Players": 0.85
+        "New Players": 0.85,
     }
-    
+
     # Validate realms exist
-    realms = db.query(ConnectedRealm).filter(ConnectedRealm.id.in_(request.realms)).all()
+    realms = (
+        db.query(ConnectedRealm).filter(ConnectedRealm.id.in_(request.realms)).all()
+    )
     if not realms:
         raise HTTPException(status_code=404, detail="No valid realms found")
-    
+
     # Get all items at once and create a map for quick lookup
     items = db.query(Item).filter(Item.item_id.in_(request.items)).all()
     item_map = {item.item_id: item for item in items}
     if not items:
         raise HTTPException(status_code=404, detail="No valid items found")
-    
+
     comparisons = []
     for realm in realms:
         # Base query for this realm's auctions
@@ -522,7 +529,8 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
                 Auction.connected_realm_id == realm.connected_realm_id,
                 Auction.item_id.in_(request.items),
                 Auction.last_modified >= recent_date,
-                Auction.buyout_price > 0
+                Auction.buyout_price > 0,
+                # Auction.active  # Only get active auctions
             )
         )
 
@@ -534,7 +542,7 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
         for item_id in request.items:
             item = item_map[item_id]
             item_auctions = base_query.filter(Auction.item_id == item_id).all()
-            
+
             if item_auctions:
                 # Calculate weighted prices based on quantity
                 weighted_prices = []
@@ -543,45 +551,53 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
                     price_per_unit = auction.buyout_price / auction.quantity
                     weighted_prices.extend([price_per_unit] * auction.quantity)
                     quantities.append(auction.quantity)
-                
+
                 quantity = sum(quantities)
                 if weighted_prices:
                     weighted_prices.sort()
                     avg_price = sum(weighted_prices) / len(weighted_prices)
-                    lowest_five_avg = sum(weighted_prices[:5]) / min(5, len(weighted_prices))
-                    
+                    lowest_five_avg = sum(weighted_prices[:5]) / min(
+                        5, len(weighted_prices)
+                    )
+
                     # Calculate item rating using P/(S+ε) * F formula
-                    population_factor = POPULATION_WEIGHTS.get(realm.population_type, 0.8)  # Default to Medium if unknown
+                    population_factor = POPULATION_WEIGHTS.get(
+                        realm.population_type, 0.8
+                    )  # Default to Medium if unknown
                     item_rating = (avg_price / (quantity + EPSILON)) * population_factor
                 else:
                     avg_price = 0
                     lowest_five_avg = 0
                     item_rating = 0
-                
-                item_details.append(ItemPriceDetails(
-                    item_id=item_id,
-                    item_name=item.item_name,
-                    lowest_price=min(weighted_prices) if weighted_prices else 0,
-                    highest_price=max(weighted_prices) if weighted_prices else 0,
-                    quantity=quantity,
-                    average_lowest_five=lowest_five_avg,
-                    rating=item_rating
-                ))
-                
-                total_value += sum(p * q for p, q in zip(weighted_prices, [1] * len(weighted_prices)))
+
+                item_details.append(
+                    ItemPriceDetails(
+                        item_id=item_id,
+                        item_name=item.item_name,
+                        lowest_price=min(weighted_prices) if weighted_prices else 0,
+                        highest_price=max(weighted_prices) if weighted_prices else 0,
+                        quantity=quantity,
+                        average_lowest_five=lowest_five_avg,
+                        rating=item_rating,
+                    )
+                )
+
+                total_value += sum(
+                    p * q for p, q in zip(weighted_prices, [1] * len(weighted_prices))
+                )
                 total_quantity += quantity
                 realm_rating += item_rating
 
         value_per_item = total_value / total_quantity if total_quantity > 0 else 0
         avg_realm_rating = realm_rating / len(request.items) if request.items else 0
-        
+
         comparisons.append(
             RealmComparison(
                 realm_id=realm.id,
                 total_value=total_value,
                 value_per_item=value_per_item,
                 rating=avg_realm_rating,
-                items=item_details
+                items=item_details,
             )
         )
 

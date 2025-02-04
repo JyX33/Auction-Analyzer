@@ -33,7 +33,6 @@ def get_db():
     finally:
         db.close()
 
-
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
     """Async context manager for database sessions with concurrency control"""
@@ -49,7 +48,6 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         finally:
             await session.close()
 
-
 async def get_item_by_id(session: AsyncSession, item_id: int) -> Optional[Item]:
     """Retrieve an item by its ID."""
     try:
@@ -58,7 +56,6 @@ async def get_item_by_id(session: AsyncSession, item_id: int) -> Optional[Item]:
     except SQLAlchemyError as e:
         logger.error(f"Failed to get item {item_id}: {str(e)}")
         raise
-
 
 async def create_item(session: AsyncSession, item_data: Dict[str, Any]) -> Item:
     """Create a new item or update if exists."""
@@ -75,7 +72,6 @@ async def create_item(session: AsyncSession, item_data: Dict[str, Any]) -> Item:
         logger.error(f"Failed to create/update item: {str(e)}")
         await session.rollback()
         raise
-
 
 async def get_items(
     session: AsyncSession,
@@ -112,14 +108,12 @@ async def get_items(
         logger.error(f"Query failed: {str(e)}")
         raise
 
-
 async def create_group(session: AsyncSession, group_name: str) -> Group:
     """Create a new group."""
     group = Group(group_name=group_name)
     session.add(group)
     await session.commit()
     return group
-
 
 async def add_item_to_group(
     session: AsyncSession, item_id: int, group_id: int
@@ -133,7 +127,6 @@ async def add_item_to_group(
     except IntegrityError:
         await session.rollback()
         return None
-
 
 async def upsert_items(session: AsyncSession, items: List[dict]):
     """Batch upsert items"""
@@ -155,12 +148,10 @@ async def upsert_items(session: AsyncSession, items: List[dict]):
     )
     await session.execute(stmt, items)
 
-
 async def item_exists(session: AsyncSession, item_id: int) -> bool:
     """Check if an item exists in the database"""
     result = await session.execute(select(exists().where(Item.item_id == item_id)))
     return result.scalar()
-
 
 async def get_connected_realm_by_id(
     session: AsyncSession, connected_realm_id: int
@@ -176,7 +167,6 @@ async def get_connected_realm_by_id(
     except SQLAlchemyError as e:
         logger.error(f"Failed to get connected realm {connected_realm_id}: {str(e)}")
         raise
-
 
 async def upsert_connected_realm(
     session: AsyncSession, realm_data: Dict[str, Any]
@@ -197,6 +187,9 @@ async def upsert_connected_realm(
                         "_realm_category", value=realm_data["realm_category"]
                     ),
                     "status": bindparam("_status", value=realm_data["status"]),
+                    "population": bindparam(
+                        "_population", value=realm_data.get("population")
+                    ),
                     "last_updated": bindparam(
                         "_last_updated", value=realm_data["last_updated"]
                     ),
@@ -213,7 +206,6 @@ async def upsert_connected_realm(
         await session.rollback()
         raise
 
-
 async def get_connected_realms(
     session: AsyncSession, page: int = 1, page_size: int = 100
 ) -> List[ConnectedRealm]:
@@ -226,12 +218,10 @@ async def get_connected_realms(
         logger.error(f"Failed to get connected realms: {str(e)}")
         raise
 
-
 async def get_all_item_ids(session: AsyncSession) -> set[int]:
     """Get all item IDs from the database."""
     result = await session.execute(select(Item.item_id))
     return set(row[0] for row in result.all())
-
 
 async def connected_realm_exists(
     session: AsyncSession, connected_realm_id: int
@@ -241,7 +231,6 @@ async def connected_realm_exists(
         select(exists().where(ConnectedRealm.connected_realm_id == connected_realm_id))
     )
     return result.scalar()
-
 
 async def auction_exists(
     session: AsyncSession, auction_id: int, connected_realm_id: int
@@ -256,7 +245,6 @@ async def auction_exists(
         )
     )
     return result.scalar()
-
 
 async def process_auction_batch(batch: List[dict]):
     """Process a batch of auctions."""
@@ -275,6 +263,7 @@ async def process_auction_batch(batch: List[dict]):
                         quantity=Auction.quantity,
                         time_left=Auction.time_left,
                         last_modified=Auction.last_modified,
+                        active=Auction.active
                     ),
                 )
             )
@@ -285,11 +274,15 @@ async def process_auction_batch(batch: List[dict]):
             await session.rollback()
             raise
 
-
 async def upsert_auctions(auctions: List[dict]):
     """Batch upsert auctions with optimized parallel processing."""
     if not auctions:
         return
+
+    # Ensure all auctions have active flag set
+    for auction in auctions:
+        if 'active' not in auction:
+            auction['active'] = True
 
     # Process auctions in batches
     batches = [
@@ -313,7 +306,6 @@ async def upsert_auctions(auctions: List[dict]):
         f"({len(auctions) / processing_time:.2f} auctions/second)"
     )
 
-
 async def get_auctions(
     session: AsyncSession,
     connected_realm_id: Optional[int] = None,
@@ -323,7 +315,7 @@ async def get_auctions(
 ) -> List[Auction]:
     """Get auctions with optional filtering and pagination."""
     try:
-        query = select(Auction)
+        query = select(Auction).where(Auction.active)  # Only get active auctions
 
         if connected_realm_id is not None:
             query = query.where(Auction.connected_realm_id == connected_realm_id)

@@ -101,14 +101,21 @@ export function RealmSelect({ compact }: RealmSelectProps) {
               >
                 <span className="flex flex-col">
                   <span className="font-medium">{realm.name}</span>
-                  <span className={`text-xs ${
-                    realm.population_type === 'Full' ? 'text-red-500' :
-                    realm.population_type === 'High' ? 'text-orange-500' :
-                    realm.population_type === 'Medium' ? 'text-yellow-500' :
-                    realm.population_type === 'Low' ? 'text-green-500' :
-                    'text-blue-500'
-                  }`}>
-                    {realm.population_type} Population
+                  <span className="flex items-center gap-2">
+                    <span className={`text-xs ${
+                      realm.population_type === 'Full' ? 'text-red-500' :
+                      realm.population_type === 'High' ? 'text-orange-500' :
+                      realm.population_type === 'Medium' ? 'text-yellow-500' :
+                      realm.population_type === 'Low' ? 'text-green-500' :
+                      'text-blue-500'
+                    }`}>
+                      {realm.population_type} Population
+                    </span>
+                    {realm.population && (
+                      <span className="text-xs text-muted-foreground">
+                        ({realm.population})
+                      </span>
+                    )}
                   </span>
                 </span>
                 {selectedRealmIds.includes(realm.id) && (
