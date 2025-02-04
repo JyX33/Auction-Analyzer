@@ -100,13 +100,6 @@ export const realmsByLanguageAtom = atom(
   }
 );
 
-export const sortedRealmComparisonAtom = atom(
-  (get) => {
-    const comparison = get(realmComparisonAtom);
-    return [...comparison].sort((a, b) => b.value_per_item - a.value_per_item);
-  }
-);
-
 // Action atoms
 export const fetchRealmsAtom = atom(
   null,

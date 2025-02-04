@@ -2,6 +2,7 @@
 FastAPI main application module implementing the REST API endpoints.
 """
 
+import math
 import re
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -499,15 +500,6 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
     recent_date = datetime.utcnow() - timedelta(days=1)
     EPSILON = 1  # Small constant to avoid division by zero
 
-    # Population type weight factors F(s)
-    POPULATION_WEIGHTS = {
-        "Full": 1.0,
-        "High": 0.8,
-        "Medium": 0.5,
-        "Low": 0.4,
-        "New Players": 0.85,
-    }
-
     # Validate realms exist
     realms = (
         db.query(ConnectedRealm).filter(ConnectedRealm.id.in_(request.realms)).all()
@@ -545,47 +537,78 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
 
             if item_auctions:
                 # Calculate weighted prices based on quantity
-                weighted_prices = []
+                # Calculate prices per unit for all auctions
+                prices_per_unit = []
                 quantities = []
                 for auction in item_auctions:
                     price_per_unit = auction.buyout_price / auction.quantity
-                    weighted_prices.extend([price_per_unit] * auction.quantity)
+                    prices_per_unit.append(price_per_unit)
                     quantities.append(auction.quantity)
 
-                quantity = sum(quantities)
-                if weighted_prices:
-                    weighted_prices.sort()
-                    avg_price = sum(weighted_prices) / len(weighted_prices)
-                    lowest_five_avg = sum(weighted_prices[:5]) / min(
-                        5, len(weighted_prices)
-                    )
-
-                    # Calculate item rating using P/(S+ε) * F formula
-                    population_factor = POPULATION_WEIGHTS.get(
-                        realm.population_type, 0.8
-                    )  # Default to Medium if unknown
-                    item_rating = (avg_price / (quantity + EPSILON)) * population_factor
+                # Sort prices for median calculation
+                sorted_prices = sorted(prices_per_unit)
+                n = len(sorted_prices)
+                
+                # Calculate median price (robust central tendency)
+                if n % 2 == 0:
+                    median_price = (sorted_prices[n // 2 - 1] + sorted_prices[n // 2]) / 2
                 else:
-                    avg_price = 0
-                    lowest_five_avg = 0
-                    item_rating = 0
+                    median_price = sorted_prices[n // 2]
+                    
+                # Calculate trimmed mean (excluding top and bottom 10%)
+                trim_size = int(n * 0.1)  # 10% trim
+                if n > 10:  # Only apply trimming if we have enough data points
+                    trimmed_prices = sorted_prices[trim_size:-trim_size]
+                    trimmed_mean = sum(trimmed_prices) / len(trimmed_prices)
+                else:
+                    trimmed_mean = median_price  # Fall back to median for small samples
+                    
+                # Use the more conservative of median and trimmed mean
+                robust_price = min(median_price, trimmed_mean)
+                
+                # Calculate effective supply (auctions within ±20% of robust price)
+                price_threshold = robust_price * 0.2  # 20% threshold
+                effective_quantity = sum(
+                    quantity for price, quantity in zip(prices_per_unit, quantities)
+                    if abs(price - robust_price) <= price_threshold
+                )
+                
+                # Fall back to total quantity if effective quantity is too small
+                total_quantity = sum(quantities)
+                if effective_quantity < total_quantity * 0.2:  # If less than 20% of total
+                    effective_quantity = total_quantity
+
+                # Calculate market quality factor using population and logs data
+                # Use geometric mean approach for balanced consideration of both factors
+                # Add 1 to logs to avoid zero in case logs data is missing
+                market_quality = (realm.population or 0) * (realm.logs + 1 if realm.logs else 1)
+                
+                # Calculate item rating using robust price, effective supply, and market quality
+                item_rating = ((robust_price / (effective_quantity + EPSILON)) * math.sqrt(market_quality) / 10000000)
+
+                # Calculate stats for item details
+                lowest_price = min(prices_per_unit) if prices_per_unit else 0
+                highest_price = max(prices_per_unit) if prices_per_unit else 0
+                # Calculate average of lowest 5 prices (or all if less than 5)
+                sorted_prices = sorted(prices_per_unit)
+                lowest_five_avg = sum(sorted_prices[:5]) / min(5, len(sorted_prices)) if sorted_prices else 0
 
                 item_details.append(
                     ItemPriceDetails(
                         item_id=item_id,
                         item_name=item.item_name,
-                        lowest_price=min(weighted_prices) if weighted_prices else 0,
-                        highest_price=max(weighted_prices) if weighted_prices else 0,
-                        quantity=quantity,
+                        lowest_price=lowest_price,
+                        highest_price=highest_price,
+                        quantity=total_quantity,  
                         average_lowest_five=lowest_five_avg,
                         rating=item_rating,
                     )
                 )
 
                 total_value += sum(
-                    p * q for p, q in zip(weighted_prices, [1] * len(weighted_prices))
+                    p * q for p, q in zip(prices_per_unit, [1] * len(prices_per_unit))
                 )
-                total_quantity += quantity
+                total_quantity += effective_quantity
                 realm_rating += item_rating
 
         value_per_item = total_value / total_quantity if total_quantity > 0 else 0

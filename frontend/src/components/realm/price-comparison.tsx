@@ -1,7 +1,7 @@
 import { useAtom } from "jotai";
 import { useEffect } from "react";
-import {
-  sortedRealmComparisonAtom,
+import {  
+  realmComparisonAtom,
   compareRealmsAtom,
   isLoadingAtom,
   selectedRealmsAtom,
@@ -55,7 +55,7 @@ function PopulationBadge({ type }: { type: string }) {
 }
 
 export function PriceComparison() {
-  const [realmComparison] = useAtom(sortedRealmComparisonAtom);
+  const [realmComparison] = useAtom(realmComparisonAtom);
   const [selectedRealms] = useAtom(selectedRealmsAtom);
   const [isLoading] = useAtom(isLoadingAtom);
   const [, compareRealms] = useAtom(compareRealmsAtom);
