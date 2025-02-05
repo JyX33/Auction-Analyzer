@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List
 
 from src.database.init_db import initialize_database
+from src.database.operations import delete_old_auctions
 from src.extractor.main import main as run_extraction
 
 # Configure logging
@@ -59,11 +60,18 @@ async def extraction_wrapper():
     # Initialize database
     await initialize_database()
 
+    # Delete auctions older than 7 days
+    try:
+        deleted_count = await delete_old_auctions(days=7)
+        logger.info(f"Cleaned up {deleted_count} old auctions")
+    except Exception as e:
+        logger.error(f"Failed to delete old auctions: {str(e)}")
+        # Continue with extraction even if cleanup fails
+    
     # Read items with extensions
     item_entries = read_item_ids()
 
     # Run extraction with (id, extension) tuples
-
     success = await run_extraction(item_entries)
 
     return success

@@ -6,9 +6,10 @@ import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from sqlalchemy import exists, select
+from sqlalchemy import exists, select, delete
 from sqlalchemy.dialects.sqlite import insert as sqlite_upsert
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -327,4 +328,30 @@ async def get_auctions(
         return result.scalars().all()
     except SQLAlchemyError as e:
         logger.error(f"Failed to get auctions: {str(e)}")
+        raise
+
+async def delete_old_auctions(days: int = 7) -> int:
+    """Delete auctions that are older than the specified number of days.
+    
+    Args:
+        days: Number of days. Auctions older than this will be deleted.
+        
+    Returns:
+        int: Number of auctions deleted
+    """
+    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    logger.info(f"Deleting auctions older than {cutoff_date}")
+    
+    try:
+        async with get_session() as session:
+            stmt = delete(Auction).where(Auction.last_modified < cutoff_date)
+            result = await session.execute(stmt)
+            deleted_count = result.rowcount
+            await session.commit()
+            
+            logger.info(f"Successfully deleted {deleted_count} old auctions")
+            return deleted_count
+            
+    except SQLAlchemyError as e:
+        logger.error(f"Failed to delete old auctions: {str(e)}")
         raise
