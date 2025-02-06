@@ -62,12 +62,10 @@ export function RealmSelect({ compact }: RealmSelectProps) {
                   setSelectedLanguages([...selectedLanguages, language]);
                 }
               }}
-              className={`flex items-center justify-between p-2 text-left border rounded-lg transition-colors
-                ${
-                  selectedLanguages.includes(language)
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:bg-accent"
-                }`}
+              className={`flex items-center justify-between p-3 text-left rounded-xl border-2 transition-all
+                ${selectedLanguages.includes(language)
+                  ? "border-blue-300 bg-blue-50/50 shadow-inner"
+                  : "border-gray-200 hover:border-blue-200 hover:bg-white hover:shadow-sm"}`}
             >
               <span className="font-medium">{language}</span>
               {selectedLanguages.includes(language) && (
@@ -102,12 +100,12 @@ export function RealmSelect({ compact }: RealmSelectProps) {
                 <span className="flex flex-col">
                   <span className="font-medium">{realm.name}</span>
                   <span className="flex items-center gap-2">
-                    <span className={`text-xs ${
-                      realm.population_type === 'Full' ? 'text-red-500' :
-                      realm.population_type === 'High' ? 'text-orange-500' :
-                      realm.population_type === 'Medium' ? 'text-yellow-500' :
-                      realm.population_type === 'Low' ? 'text-green-500' :
-                      'text-blue-500'
+                    <span className={`text-xs font-semibold ${
+                      realm.population_type === 'Full' ? 'text-red-600' :
+                      realm.population_type === 'High' ? 'text-orange-600' :
+                      realm.population_type === 'Medium' ? 'text-yellow-600' :
+                      realm.population_type === 'Low' ? 'text-green-600' : 
+                      'text-blue-600'
                     }`}>
                       {realm.population_type} Population
                     </span>

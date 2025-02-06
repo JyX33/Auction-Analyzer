@@ -66,12 +66,10 @@ export function ItemSelect({ compact }: ItemSelectProps) {
                   }
                   setSelectedItemIds(newSelected);
                 }}
-                className={`flex items-center justify-between p-2 text-left border rounded-lg transition-colors
-                  ${
-                    selectedItemIds.has(item.item_id)
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:bg-accent"
-                  }`}
+                className={`flex items-center justify-between p-3 text-left rounded-xl border-2 transition-all
+                  ${selectedItemIds.has(item.item_id)
+                    ? "border-blue-300 bg-blue-50/50 shadow-inner"
+                    : "border-gray-200 hover:border-blue-200 hover:bg-white hover:shadow-sm"}`}
               >
                 <span className="flex flex-col">
                   <span className="font-medium">{item.item_name}</span>
