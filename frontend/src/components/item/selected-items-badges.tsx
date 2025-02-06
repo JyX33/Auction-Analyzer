@@ -27,18 +27,17 @@ export function SelectedItemsBadges({ items }: SelectedItemsBadgesProps) {
       {selectedItems.map((item) => (
         <div 
           key={item.item_id}
-          className="flex items-center gap-1 px-2 py-1 text-sm rounded-md bg-secondary"
+          className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-full bg-white border-2 border-blue-100 shadow-sm hover:shadow"
         >
-          <span>{item.item_name}</span>
+          <span className="text-blue-800">{item.item_name}</span>
           <button
             onClick={() => {
               const newSelected = new Set(selectedItemIds);
               newSelected.delete(item.item_id);
               setSelectedItemIds(newSelected);
             }}
-            className="text-muted-foreground hover:text-foreground"
           >
-            <X className="h-3 w-3" />
+            <X className="h-4 w-4 text-blue-400 hover:text-blue-600 transition-colors" />
           </button>
         </div>
       ))}

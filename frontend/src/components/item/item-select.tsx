@@ -105,11 +105,11 @@ export function ItemSelect({ compact }: ItemSelectProps) {
           <Button 
             variant="outline"
             size="default"
-            className="w-full justify-between"
+            className="w-full justify-between hover:border-blue-300 hover:bg-white/50"
             role="combobox"
           >
-            <span>Select Items</span>
-            <ChevronDown className="w-4 h-4 opacity-50" />
+            <span className="text-gray-700">Select Items</span>
+            <ChevronDown className="w-4 h-4 text-gray-500" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[400px] p-4" align="start">

@@ -17,39 +17,33 @@ export function WowMoney({ copper, showIcons = true, className = '', iconSize = 
   const iconStyles = { width: `${iconSize}px`, height: `${iconSize}px` };
 
   return (
-    <div className={`flex items-center gap-1 ${className}`}>
+    <div className={cn("inline-flex items-center gap-1.5 font-semibold", className)}>
       {gold > 0 && (
-        <span className="flex items-center gap-0.5">
-          <span className="font-medium">{gold.toLocaleString()}</span>
+        <span className="flex items-center gap-1 text-yellow-600">
+          <span>{gold.toLocaleString()}</span>
           {showIcons ? (
-            <span style={iconStyles}>
-              <WowMoneyIcon type="gold" className="flex-shrink-0" />
-            </span>
+            <WowMoneyIcon type="gold" className="w-4 h-4" />
           ) : (
-            <span className="text-yellow-500">g</span>
+            <span>g</span>
           )}
         </span>
       )}
       {(silver > 0 || gold > 0) && (
-        <span className="flex items-center gap-0.5">
-          <span className="font-medium">{silver}</span>
+        <span className="flex items-center gap-1 text-gray-500">
+          <span>{silver}</span>
           {showIcons ? (
-            <span style={iconStyles}>
-              <WowMoneyIcon type="silver" className="flex-shrink-0" />
-            </span>
+            <WowMoneyIcon type="silver" className="w-4 h-4" />
           ) : (
-            <span className="text-gray-400">s</span>
+            <span>s</span>
           )}
         </span>
       )}
-      <span className="flex items-center gap-0.5">
-        <span className="font-medium">{remainingCopper}</span>
+      <span className="flex items-center gap-1 text-orange-600">
+        <span>{remainingCopper}</span>
         {showIcons ? (
-          <span style={iconStyles}>
-            <WowMoneyIcon type="copper" className="flex-shrink-0" />
-          </span>
+          <WowMoneyIcon type="copper" className="w-4 h-4" />
         ) : (
-          <span className="text-orange-400">c</span>
+          <span>c</span>
         )}
       </span>
     </div>
