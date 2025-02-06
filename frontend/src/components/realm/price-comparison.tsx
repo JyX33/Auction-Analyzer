@@ -110,6 +110,11 @@ export function PriceComparison() {
                <div className="flex items-center gap-2">
                  <span className="font-medium">{realm.name}</span>
                  <PopulationBadge type={realm.population_type} />
+                 {realm.population && (
+                   <span className="text-sm text-muted-foreground">
+                     ({realm.population})
+                   </span>
+                 )}
                </div>
                <div className="flex items-center gap-2">
                  <div className="flex items-center gap-2">
