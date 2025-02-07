@@ -36,11 +36,11 @@ export function RealmSelect({ compact }: RealmSelectProps) {
 
 
   const RealmsSelection = () => (
-    <>
+    <div className="max-h-[400px] overflow-y-auto">
       {Object.entries(filteredRealmsByLanguage).map(([language, realms]) => (
-        <div key={language}>
-          <div className="text-sm font-medium mb-2">{language} Realms</div>
-          <div className="grid gap-2">
+        <div key={language} className="mb-4">
+          <div className="text-sm font-medium mb-2 sticky top-0 bg-white z-10 border-b pb-1">{language} Realms</div>
+          <div className="grid grid-cols-2 gap-2">
             {realms.map((realm) => (
               <button
                 key={realm.id}
@@ -59,7 +59,7 @@ export function RealmSelect({ compact }: RealmSelectProps) {
                   }`}
               >
                 <span className="flex flex-col">
-                  <span className="font-medium">{realm.name}</span>
+                  <span className="font-medium text-sm">{realm.name}</span>
                   <span className="flex items-center gap-2">
                     <span className={`text-xs font-semibold ${
                       realm.population_type === 'Full' ? 'text-red-600' :
@@ -68,7 +68,7 @@ export function RealmSelect({ compact }: RealmSelectProps) {
                       realm.population_type === 'Low' ? 'text-green-600' : 
                       'text-blue-600'
                     }`}>
-                      {realm.population_type} Population
+                      {realm.population_type}
                     </span>
                     {realm.population && (
                       <span className="text-xs text-muted-foreground">
@@ -85,7 +85,7 @@ export function RealmSelect({ compact }: RealmSelectProps) {
           </div>
         </div>
       ))}
-    </>
+    </div>
   );
 
   useEffect(() => {

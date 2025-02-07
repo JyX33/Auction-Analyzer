@@ -20,7 +20,7 @@ export function LanguageSelect() {
   return (
     <div>
       <div className="text-sm font-medium mb-2">Select Languages</div>
-      <div className="grid gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {ALL_LANGUAGES.map((language) => (
           <button
             key={language}
@@ -31,7 +31,7 @@ export function LanguageSelect() {
                 setSelectedLanguages([...selectedLanguages, language]);
               }
             }}
-            className={`flex items-center justify-between p-3 text-left rounded-lg border transition-all
+            className={`flex items-center justify-between p-2 text-left rounded-lg border transition-all text-sm
               ${selectedLanguages.includes(language)
                 ? "border-primary bg-primary/10"
                 : "border-gray-200 hover:bg-accent"}`}
