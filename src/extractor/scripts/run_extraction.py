@@ -62,12 +62,12 @@ async def extraction_wrapper():
 
     # Delete auctions older than 7 days
     try:
-        deleted_count = await delete_old_auctions(days=7)
+        deleted_count = await delete_old_auctions(days=3)
         logger.info(f"Cleaned up {deleted_count} old auctions")
     except Exception as e:
         logger.error(f"Failed to delete old auctions: {str(e)}")
         # Continue with extraction even if cleanup fails
-    
+
     # Read items with extensions
     item_entries = read_item_ids()
 
