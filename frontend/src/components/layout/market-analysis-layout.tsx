@@ -1,6 +1,7 @@
 "use client";
 
 import { RealmSelect } from "@/components/realm/realm-select";
+import { LanguageSelect } from "@/components/realm/language-select";
 import { ItemSelect } from "@/components/item/item-select";
 import { SelectedRealmsBadges } from "@/components/realm/selected-realms-badges";
 import { SelectedItemsBadges } from "@/components/item/selected-items-badges";
@@ -22,6 +23,7 @@ export function MarketAnalysisLayout() {
             {/* Realm Selector Column */}
             <div className="space-y-2">
               <div className="text-sm font-medium">Selected Realms</div>
+              <LanguageSelect />
               <RealmSelect compact />
               <SelectedRealmsBadges />
             </div>

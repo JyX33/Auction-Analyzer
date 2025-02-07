@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LanguageSelect } from "./language-select";
 
 const ALL_LANGUAGES = ['English', 'French', 'German', 'Spanish', 'Portuguese', 'Italian', 'Russian'];
 
@@ -136,7 +135,6 @@ export function RealmSelect({ compact }: RealmSelectProps) {
               onChange={(e) => setSearch(e.target.value)}
               autoComplete="off"
             />
-            <LanguageSelect />
             <RealmsSelection />
           </div>
         </PopoverContent>
@@ -146,7 +144,6 @@ export function RealmSelect({ compact }: RealmSelectProps) {
 
   return (
     <div className="grid gap-4 p-4">
-      <LanguageSelect />
       <RealmsSelection />
     </div>
   );
