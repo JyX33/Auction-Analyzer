@@ -34,48 +34,37 @@ export function RealmSelect({ compact }: RealmSelectProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    fetchRealms();
-  }, [fetchRealms, selectedLanguages]);
-
-  const filteredRealmsByLanguage = Object.fromEntries(
-    Object.entries(realmsByLanguage).map(([language, realms]) => [
-      language,
-      realms.filter(realm => 
-        realm.name.toLowerCase().includes(search.toLowerCase())
-      )
-    ])
+  const LanguageSelection = () => (
+    <div>
+      <div className="text-sm font-medium mb-2">Select Languages</div>
+      <div className="grid gap-2">
+        {ALL_LANGUAGES.map((language) => (
+          <button
+            key={language}
+            onClick={() => {
+              if (selectedLanguages.includes(language)) {
+                setSelectedLanguages(selectedLanguages.filter((l) => l !== language));
+              } else {
+                setSelectedLanguages([...selectedLanguages, language]);
+              }
+            }}
+            className={`flex items-center justify-between p-3 text-left rounded-xl border-2 transition-all
+              ${selectedLanguages.includes(language)
+                ? "border-blue-300 bg-blue-50/50 shadow-inner"
+                : "border-gray-200 hover:border-blue-200 hover:bg-white hover:shadow-sm"}`}
+          >
+            <span className="font-medium">{language}</span>
+            {selectedLanguages.includes(language) && (
+              <Check className="h-4 w-4 text-primary" />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 
-  const SelectionContent = () => (
-    <div className="grid gap-4">
-      <div>
-        <div className="text-sm font-medium mb-2">Select Languages</div>
-        <div className="grid gap-2">
-          {ALL_LANGUAGES.map((language) => (
-            <button
-              key={language}
-              onClick={() => {
-                if (selectedLanguages.includes(language)) {
-                  setSelectedLanguages(selectedLanguages.filter((l) => l !== language));
-                } else {
-                  setSelectedLanguages([...selectedLanguages, language]);
-                }
-              }}
-              className={`flex items-center justify-between p-3 text-left rounded-xl border-2 transition-all
-                ${selectedLanguages.includes(language)
-                  ? "border-blue-300 bg-blue-50/50 shadow-inner"
-                  : "border-gray-200 hover:border-blue-200 hover:bg-white hover:shadow-sm"}`}
-            >
-              <span className="font-medium">{language}</span>
-              {selectedLanguages.includes(language) && (
-                <Check className="h-4 w-4 text-primary" />
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
+  const RealmsSelection = () => (
+    <>
       {Object.entries(filteredRealmsByLanguage).map(([language, realms]) => (
         <div key={language}>
           <div className="text-sm font-medium mb-2">{language} Realms</div>
@@ -124,8 +113,23 @@ export function RealmSelect({ compact }: RealmSelectProps) {
           </div>
         </div>
       ))}
-    </div>
+    </>
   );
+
+  useEffect(() => {
+    fetchRealms();
+  }, [fetchRealms, selectedLanguages]);
+
+  const filteredRealmsByLanguage = Object.fromEntries(
+    Object.entries(realmsByLanguage).map(([language, realms]) => [
+      language,
+      realms.filter(realm => 
+        realm.name.toLowerCase().includes(search.toLowerCase())
+      )
+    ])
+  );
+
+  // Removed SelectionContent function
 
   if (isLoading) {
     return (
@@ -159,7 +163,8 @@ export function RealmSelect({ compact }: RealmSelectProps) {
               onChange={(e) => setSearch(e.target.value)}
               autoComplete="off"
             />
-            <SelectionContent />
+            <LanguageSelection />
+            <RealmsSelection />
           </div>
         </PopoverContent>
       </Popover>
@@ -168,7 +173,8 @@ export function RealmSelect({ compact }: RealmSelectProps) {
 
   return (
     <div className="grid gap-4 p-4">
-      <SelectionContent />
+      <LanguageSelection />
+      <RealmsSelection />
     </div>
   );
 }
