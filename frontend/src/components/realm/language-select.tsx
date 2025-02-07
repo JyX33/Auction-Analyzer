@@ -31,10 +31,10 @@ export function LanguageSelect() {
                 setSelectedLanguages([...selectedLanguages, language]);
               }
             }}
-            className={`flex items-center justify-between p-3 text-left rounded-xl border-2 transition-all
+            className={`flex items-center justify-between p-2 text-left rounded-lg border transition-all
               ${selectedLanguages.includes(language)
-                ? "border-blue-300 bg-blue-50/50 shadow-inner"
-                : "border-gray-200 hover:border-blue-200 hover:bg-white hover:shadow-sm"}`}
+                ? "border-primary bg-primary/10"
+                : "border-border hover:bg-accent"}`}
           >
             <span className="font-medium">{language}</span>
             {selectedLanguages.includes(language) && (

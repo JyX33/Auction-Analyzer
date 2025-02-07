@@ -19,25 +19,25 @@ export function MarketAnalysisLayout() {
       {/* Control Bar - Sticky at top */}
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b shadow-sm">
         <div className="container px-4 py-3">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
             {/* Realm Selector Column */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Selected Realms</div>
+            <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
+              <div className="text-lg font-semibold">Realms</div>
               <LanguageSelect />
               <RealmSelect compact />
               <SelectedRealmsBadges />
             </div>
 
             {/* Item Selector Column */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Selected Items</div>
+            <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
+              <div className="text-lg font-semibold">Items</div>
               <ItemSelect compact />
               <SelectedItemsBadges items={items} />
             </div>
 
             {/* Analysis Controls Column */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Analysis Tools</div>
+            <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
+              <div className="text-lg font-semibold">Analysis Tools</div>
               <Button 
                 variant="default" 
                 className="w-full shadow hover:shadow-md"
