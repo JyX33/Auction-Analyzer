@@ -60,7 +60,7 @@ async def extraction_wrapper():
     # Initialize database
     await initialize_database()
 
-    # Delete auctions older than 7 days
+    # Delete auctions older than 3 days
     try:
         deleted_count = await delete_old_auctions(days=3)
         logger.info(f"Cleaned up {deleted_count} old auctions")
