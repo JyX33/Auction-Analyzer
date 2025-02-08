@@ -316,10 +316,21 @@ async def main(item_entries: List[tuple]):
             # Create semaphore to limit concurrent realm processing
             realm_semaphore = asyncio.Semaphore(10)  # Process 10 realms at a time
 
+            # Collect failed realms during processing
+            failed_realms = []
+
             async def process_realm_with_session(realm_id: int) -> bool:
                 async with realm_semaphore:  # Limit concurrent processing
                     async with get_session() as session:  # Each realm gets its own session
-                        return await extractor.extract_auctions(session, realm_id)
+                        try:
+                            success = await extractor.extract_auctions(session, realm_id)
+                            if not success:
+                                failed_realms.append(realm_id)
+                            return success
+                        except Exception as e:
+                            logging.error(f"Error processing realm {realm_id}: {e}")
+                            failed_realms.append(realm_id)
+                            return False
 
             # Create tasks for all realms with individual sessions
             start_time = time.perf_counter()
@@ -329,15 +340,27 @@ async def main(item_entries: List[tuple]):
             results = await asyncio.gather(*realm_tasks, return_exceptions=True)
             processing_time = time.perf_counter() - start_time
 
-            # Handle results and any exceptions
-            failed_realms = [
-                realm_id
-                for realm_id, result in zip(realm_ids, results)
-                if isinstance(result, Exception) or result is False
-            ]
+            # Retry failed realms
+            max_retries = 3
+            retry_attempt = 0
+            while failed_realms and retry_attempt < max_retries:
+                retry_attempt += 1
+                logging.info(f"Retry attempt {retry_attempt} for failed realms: {failed_realms}")
+                current_failed = []
+                
+                for realm_id in failed_realms:
+                    try:
+                        realm_success = await process_realm_with_session(realm_id)
+                        if not realm_success:
+                            current_failed.append(realm_id)
+                    except Exception as e:
+                        logging.error(f"Error retrying realm {realm_id}: {e}")
+                        current_failed.append(realm_id)
+                
+                failed_realms = current_failed
 
             if failed_realms:
-                logging.error(f"Failed to process realms: {failed_realms}")
+                logging.error(f"After {max_retries} retry attempts, the following realms still failed: {failed_realms}")
 
             total_realms = len(realm_ids)
             successful_realms = total_realms - len(failed_realms)
