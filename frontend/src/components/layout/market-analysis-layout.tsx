@@ -1,14 +1,12 @@
 "use client";
 
-import { RealmSelect } from "@/components/realm/realm-select";
 import { LanguageSelect } from "@/components/realm/language-select";
 import { ItemSelect } from "@/components/item/item-select";
-import { SelectedRealmsBadges } from "@/components/realm/selected-realms-badges";
 import { SelectedItemsBadges } from "@/components/item/selected-items-badges";
 import { PriceComparison } from "@/components/realm/price-comparison";
 import { useAtom } from "jotai";
 import { useEffect } from "react";
-import { itemsAtom, selectedItemIdsAtom, selectedLanguagesAtom, selectedRealmIdsAtom, selectedRealmsAtom } from "@/lib/store";
+import { itemsAtom, selectedItemIdsAtom, selectedLanguagesAtom, selectedRealmIdsAtom } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { getRealmsForLanguage } from "@/lib/utils";
 
@@ -20,7 +18,7 @@ export function MarketAnalysisLayout() {
 
   useEffect(() => {
     if (selectedLanguages && selectedLanguages.length > 0) {
-      let realms: number[] = [];
+      const realms: number[] = [];
       selectedLanguages.forEach(language => {
         realms.push(...getRealmsForLanguage(language));
       });
