@@ -6,7 +6,7 @@ import { SelectedItemsBadges } from "@/components/item/selected-items-badges";
 import { PriceComparison } from "@/components/realm/price-comparison";
 import { useAtom } from "jotai";
 import { useEffect } from "react";
-import { itemsAtom, selectedItemIdsAtom, selectedLanguagesAtom, selectedRealmIdsAtom, realmsAtom } from "@/lib/store";
+import { itemsAtom, selectedItemIdsAtom, selectedLanguagesAtom, selectedRealmIdsAtom, realmsAtom, fetchRealmsAtom } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 
 export function MarketAnalysisLayout() {
@@ -15,6 +15,13 @@ export function MarketAnalysisLayout() {
   const [selectedLanguages] = useAtom(selectedLanguagesAtom);
   const [, setSelectedRealmIds] = useAtom(selectedRealmIdsAtom);
   const [realms] = useAtom(realmsAtom);
+  const [, fetchRealms] = useAtom(fetchRealmsAtom);
+
+  useEffect(() => {
+    if (realms.length === 0) {
+      fetchRealms();
+    }
+  }, [realms, fetchRealms]);
 
   useEffect(() => {
     if (selectedLanguages.length > 0 && realms.length > 0) {
