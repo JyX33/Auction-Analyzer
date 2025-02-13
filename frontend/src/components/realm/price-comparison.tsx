@@ -62,6 +62,7 @@ export function PriceComparison() {
   const [isLoading] = useAtom(isLoadingAtom);
   const [, compareRealms] = useAtom(compareRealmsAtom);
   const [selectedItems] = useAtom(selectedItemIdsAtom);
+  const selectedItemIds = Array.from(selectedItems);
   
   useEffect(() => {
     if (selectedRealms.length > 0 && selectedItems.size > 0) {
