@@ -7,12 +7,28 @@ import { SelectedRealmsBadges } from "@/components/realm/selected-realms-badges"
 import { SelectedItemsBadges } from "@/components/item/selected-items-badges";
 import { PriceComparison } from "@/components/realm/price-comparison";
 import { useAtom } from "jotai";
-import { itemsAtom, selectedItemIdsAtom } from "@/lib/store";
+import { useEffect } from "react";
+import { itemsAtom, selectedItemIdsAtom, selectedLanguagesAtom, selectedRealmsAtom } from "@/lib/store";
 import { Button } from "@/components/ui/button";
+import { getRealmsForLanguage } from "@/lib/utils";
 
 export function MarketAnalysisLayout() {
   const [items] = useAtom(itemsAtom);
   const [, setSelectedItemIds] = useAtom(selectedItemIdsAtom);
+  const [selectedLanguages] = useAtom(selectedLanguagesAtom);
+  const [, setSelectedRealms] = useAtom(selectedRealmsAtom);
+
+  useEffect(() => {
+    if (selectedLanguages && selectedLanguages.length > 0) {
+      let realms: number[] = [];
+      selectedLanguages.forEach(language => {
+        realms.push(...getRealmsForLanguage(language));
+      });
+      setSelectedRealms(new Set(realms));
+    } else {
+      setSelectedRealms(new Set());
+    }
+  }, [selectedLanguages, setSelectedRealms]);
 
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -33,12 +49,6 @@ export function MarketAnalysisLayout() {
               <LanguageSelect />
             </div>
 
-            {/* Realm Selector */}
-            <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
-              <div className="text-lg font-semibold">Realms</div>
-              <RealmSelect compact />
-              <SelectedRealmsBadges />
-            </div>
 
             {/* Analysis Controls */}
             <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
