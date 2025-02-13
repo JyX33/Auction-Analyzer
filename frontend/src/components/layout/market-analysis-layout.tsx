@@ -35,20 +35,19 @@ export function MarketAnalysisLayout() {
       {/* Control Bar - Sidebar on left side */}
       <div className="w-64 sticky left-0 top-0 h-screen bg-white/80 backdrop-blur-lg border-r shadow-sm">
         <div className="p-4">
-          <div className="grid grid-rows-4 gap-6 items-start">
-            {/* Item Selector */}
-            <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
-              <div className="text-lg font-semibold">Items</div>
-              <ItemSelect compact />
-              <SelectedItemsBadges items={items} />
-            </div>
-
+          <div className="grid grid-rows-3 gap-6 items-start">
             {/* Language Selector */}
             <div className="bg-indigo-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
               <div className="text-lg font-semibold">Languages</div>
               <LanguageSelect />
             </div>
 
+            {/* Item Selector */}
+            <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
+              <div className="text-lg font-semibold">Items</div>
+              <ItemSelect compact />
+              <SelectedItemsBadges items={items} />
+            </div>
 
             {/* Analysis Controls */}
             <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
