@@ -16,7 +16,7 @@ export function MarketAnalysisLayout() {
   const [items] = useAtom(itemsAtom);
   const [, setSelectedItemIds] = useAtom(selectedItemIdsAtom);
   const [selectedLanguages] = useAtom(selectedLanguagesAtom);
-  const [, setSelectedRealms] = useAtom(selectedRealmsAtom);
+  const [, setSelectedRealmIds] = useAtom(selectedRealmIdsAtom);
 
   useEffect(() => {
     if (selectedLanguages && selectedLanguages.length > 0) {
@@ -24,11 +24,11 @@ export function MarketAnalysisLayout() {
       selectedLanguages.forEach(language => {
         realms.push(...getRealmsForLanguage(language));
       });
-      setSelectedRealms(new Set(realms));
+      setSelectedRealmIds(realms);
     } else {
-      setSelectedRealms(new Set());
+      setSelectedRealmIds([]);
     }
-  }, [selectedLanguages, setSelectedRealms]);
+  }, [selectedLanguages, setSelectedRealmIds]);
 
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-gray-50 to-white">
