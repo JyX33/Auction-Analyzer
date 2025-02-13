@@ -26,3 +26,20 @@ export function calculatePriceTrend(
   if (difference < 0) return { percentage, direction: "down" };
   return { percentage: 0, direction: "stable" };
 }
+
+export function getRealmsForLanguage(language: string): number[] {
+  // This function should return realm IDs for a given language
+  // We'll use the logic from the store's realmsByLanguageAtom as a reference
+  const realms = [
+    { id: 1, language: 'English' },
+    { id: 2, language: 'French' },
+    { id: 3, language: 'German' },
+    { id: 4, language: 'Spanish' },
+    { id: 5, language: 'Portuguese' },
+    { id: 6, language: 'Italian' }
+  ];
+
+  return realms
+    .filter(realm => realm.language === language)
+    .map(realm => realm.id);
+}
