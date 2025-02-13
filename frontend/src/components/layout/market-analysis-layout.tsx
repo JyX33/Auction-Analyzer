@@ -8,7 +8,7 @@ import { SelectedItemsBadges } from "@/components/item/selected-items-badges";
 import { PriceComparison } from "@/components/realm/price-comparison";
 import { useAtom } from "jotai";
 import { useEffect } from "react";
-import { itemsAtom, selectedItemIdsAtom, selectedLanguagesAtom, selectedRealmsAtom } from "@/lib/store";
+import { itemsAtom, selectedItemIdsAtom, selectedLanguagesAtom, selectedRealmIdsAtom, selectedRealmsAtom } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { getRealmsForLanguage } from "@/lib/utils";
 
