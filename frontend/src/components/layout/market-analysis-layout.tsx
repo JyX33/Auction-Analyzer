@@ -20,6 +20,13 @@ export function MarketAnalysisLayout() {
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b shadow-sm">
         <div className="container px-4 py-3">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+            {/* Item Selector Column - Moved to first position */}
+            <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
+              <div className="text-lg font-semibold">Items</div>
+              <ItemSelect compact />
+              <SelectedItemsBadges items={items} />
+            </div>
+
             {/* Language Selector Column */}
             <div className="bg-indigo-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
               <div className="text-lg font-semibold">Languages</div>
@@ -31,13 +38,6 @@ export function MarketAnalysisLayout() {
               <div className="text-lg font-semibold">Realms</div>
               <RealmSelect compact />
               <SelectedRealmsBadges />
-            </div>
-
-            {/* Item Selector Column */}
-            <div className="bg-gray-50 p-4 border rounded-lg shadow-sm flex flex-col space-y-3">
-              <div className="text-lg font-semibold">Items</div>
-              <ItemSelect compact />
-              <SelectedItemsBadges items={items} />
             </div>
 
             {/* Analysis Controls Column */}
