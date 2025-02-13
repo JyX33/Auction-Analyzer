@@ -6,27 +6,26 @@ import { SelectedItemsBadges } from "@/components/item/selected-items-badges";
 import { PriceComparison } from "@/components/realm/price-comparison";
 import { useAtom } from "jotai";
 import { useEffect } from "react";
-import { itemsAtom, selectedItemIdsAtom, selectedLanguagesAtom, selectedRealmIdsAtom } from "@/lib/store";
+import { itemsAtom, selectedItemIdsAtom, selectedLanguagesAtom, selectedRealmIdsAtom, realmsAtom } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { getRealmsForLanguage } from "@/lib/utils";
 
 export function MarketAnalysisLayout() {
   const [items] = useAtom(itemsAtom);
   const [, setSelectedItemIds] = useAtom(selectedItemIdsAtom);
   const [selectedLanguages] = useAtom(selectedLanguagesAtom);
   const [, setSelectedRealmIds] = useAtom(selectedRealmIdsAtom);
+  const [realms] = useAtom(realmsAtom);
 
   useEffect(() => {
-    if (selectedLanguages && selectedLanguages.length > 0) {
-      const realms: number[] = [];
-      selectedLanguages.forEach(language => {
-        realms.push(...getRealmsForLanguage(language));
-      });
-      setSelectedRealmIds(realms);
+    if (selectedLanguages.length > 0 && realms.length > 0) {
+      const realmIds = realms
+        .filter(realm => selectedLanguages.includes(realm.language))
+        .map(realm => realm.id);
+      setSelectedRealmIds(realmIds);
     } else {
       setSelectedRealmIds([]);
     }
-  }, [selectedLanguages, setSelectedRealmIds]);
+  }, [selectedLanguages, realms, setSelectedRealmIds]);
 
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-gray-50 to-white">
