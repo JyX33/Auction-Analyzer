@@ -6,11 +6,13 @@ import {
   isLoadingAtom,
   selectedRealmsAtom,
   selectedItemIdsAtom,
+  itemsAtom,
 } from "@/lib/store";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { WowMoneyIcon } from "@/components/ui/wow-money-icon";
 import { ArrowUp, ArrowDown, Users } from "lucide-react";
 import type { RealmComparison } from "@/lib/api";
+import { PriceRankingCard } from "@/components/realm/price-ranking-card";
 
 function FormattedMoney({ copper }: { copper: number }) {
   const gold = Math.floor(copper / 10000);
