@@ -60,7 +60,6 @@ class BlizzardAPIClient:
             response = await self._request("GET", url)
             realms = []
             for realm in response.get("connected_realms", []):
-                # Extract ID from href which looks like "https://.../data/wow/connected-realm/1234"
                 try:
                     # Handle both full URLs and relative paths
                     href = realm.get("href", "")
@@ -178,6 +177,55 @@ class BlizzardAPIClient:
             raise
         except Exception as e:
             logging.error(f"Unexpected error while fetching auctions: {e}")
+            return []
+
+    async def fetch_commodities(self) -> list[dict]:
+        """Fetch commodity auction house data."""
+        url = f"{self.base_url}/auctions/commodities?namespace=dynamic-eu&locale=en_US"
+        try:
+            response = await self._request("GET", url)
+            auctions = response.get("auctions", [])
+
+            # Transform commodity data to match our schema
+            transformed_commodities = []
+            for auction in auctions:
+                try:
+                    # Check if required fields exist
+                    if "id" not in auction or "item" not in auction:
+                        logging.warning(f"Commodity missing required fields: {auction}")
+                        continue
+
+                    # Get item ID safely
+                    item_id = auction["item"]["id"]
+                    if not item_id:
+                        logging.warning(
+                            f"Could not extract item ID from commodity: {auction}"
+                        )
+                        continue
+
+                    transformed_commodity = {
+                        "item_id": item_id,
+                        "quantity": auction.get("quantity", 1),
+                        "unit_price": auction.get("unit_price", 0),
+                        "last_modified": datetime.utcnow(),
+                    }
+                    transformed_commodities.append(transformed_commodity)
+                    logging.debug(f"Transformed commodity data: {transformed_commodity}")
+                except (KeyError, ValueError) as e:
+                    logging.warning(
+                        f"Failed to transform commodity data: {e}, auction: {auction}"
+                    )
+                    continue
+
+            return transformed_commodities
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logging.warning("No commodities found")
+                return []
+            logging.error(f"Failed to fetch commodities: {e}")
+            raise
+        except Exception as e:
+            logging.error(f"Unexpected error while fetching commodities: {e}")
             return []
 
     async def _request(self, method: str, url: str, **kwargs) -> dict:

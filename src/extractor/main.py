@@ -18,17 +18,19 @@ from src.database.operations import (
     upsert_auctions,
     upsert_connected_realm,
     upsert_items,
+    upsert_commodities,
+    delete_all_commodities,
 )
 from src.database.models import Auction
 
 from .api_client import BlizzardAPIClient
-
 
 class ItemExtractor:
     def __init__(self):
         self.client = BlizzardAPIClient(
             os.getenv("BLIZZARD_CLIENT_ID"), os.getenv("BLIZZARD_CLIENT_SECRET")
         )
+        self.realmIds_to_retry = []
         self.stats = {
             "processed": 0,
             "succeeded": 0,
@@ -43,6 +45,9 @@ class ItemExtractor:
             "auctions_succeeded": 0,
             "auctions_failed": 0,
             "auctions_skipped": 0,  # Auctions already in DB and unchanged
+            "commodities_processed": 0,  # New commodity stats
+            "commodities_succeeded": 0,
+            "commodities_failed": 0,
         }
 
     def transform_item(self, raw_data: dict) -> dict:
@@ -54,19 +59,50 @@ class ItemExtractor:
         try:
             return {
                 "item_id": item["id"],
-                "item_name": item[
-                    "name"
-                ],  # Direct API returns string, not localized dict
+                "item_name": item["name"],
                 "item_class_id": item["item_class"]["id"],
-                "item_class_name": item["item_class"]["name"],  # Direct string
+                "item_class_name": item["item_class"]["name"],
                 "item_subclass_id": item["item_subclass"]["id"],
-                "item_subclass_name": item["item_subclass"]["name"],  # Direct string
+                "item_subclass_name": item["item_subclass"]["name"],
                 "display_subclass_name": "",  # Not available in direct API
             }
         except (KeyError, IndexError) as e:
             logging.error(f"Failed to transform item data: {str(e)}")
             logging.debug(f"Raw data: {raw_data}")
             raise ValueError(f"Invalid item data structure: {str(e)}")
+
+    async def extract_commodities(self):
+        """Extract and store commodity data"""
+        logging.info("Starting commodity extraction...")
+        start_time = time.perf_counter()
+
+        try:
+            # Delete all existing commodities
+            await delete_all_commodities()
+
+            # Fetch new commodities
+            commodities = await self.client.fetch_commodities()
+            if not commodities:
+                logging.info("No commodities found")
+                return True
+
+            self.stats["commodities_processed"] = len(commodities)
+
+            # Process commodities with quantity merging
+            await upsert_commodities(commodities)
+            self.stats["commodities_succeeded"] = len(commodities)
+
+            processing_time = time.perf_counter() - start_time
+            logging.info(
+                f"Completed processing {len(commodities)} commodities "
+                f"in {processing_time:.2f} seconds"
+            )
+            return True
+
+        except Exception as e:
+            self.stats["commodities_failed"] += self.stats["commodities_processed"]
+            logging.error(f"Commodity extraction failed: {str(e)}")
+            return False
 
     async def extract_connected_realms(self, session: AsyncSession):
         """Extract and store connected realm data"""
@@ -125,31 +161,33 @@ class ItemExtractor:
                 return True
 
             # Deactivate existing auctions for this realm
-            # Deactivate previous auctions for this connected realm
             await session.execute(
-                update(Auction).where(
+                update(Auction)
+                .where(
                     and_(
                         Auction.connected_realm_id == connected_realm_id,
-                        Auction.active.is_(True)
+                        Auction.active.is_(True),
                     )
-                ).values(active=False)
+                )
+                .values(active=False)
             )
             await session.commit()
 
             # Process new auctions with active=True
-            batch_size = 5000  # Increased batch size
+            batch_size = 5000
             for i in range(0, len(auctions), batch_size):
-                batch = auctions[i: i + batch_size]
+                batch = auctions[i:i + batch_size]
                 try:
                     # Set active=True for all new auctions
                     for auction in batch:
                         auction["active"] = True
-                    
+
                     self.stats["auctions_processed"] += len(batch)
                     await upsert_auctions(batch)
                     self.stats["auctions_succeeded"] += len(batch)
                 except Exception as e:
                     self.stats["auctions_failed"] += len(batch)
+                    self.realmIds_to_retry.append(connected_realm_id)
                     logging.error(f"Failed to process auction batch: {str(e)}")
 
             processing_time = time.perf_counter() - start_time
@@ -171,7 +209,7 @@ class ItemExtractor:
 
     async def process_batch(self, item_entries: List[tuple]):
         """Process batch of items with dedicated session
-        
+
         Args:
             item_entries: List of tuples containing (item_id, extension)
         """
@@ -231,7 +269,9 @@ class ItemExtractor:
             logging.error(f"Batch processing failed: {str(e)}")
             return False
 
-    async def process_single_item(self, item_id: int, extension: str, session: AsyncSession):
+    async def process_single_item(
+        self, item_id: int, extension: str, session: AsyncSession
+    ):
         """Process item with proper session management"""
         self.stats["processed"] += 1
         try:
@@ -274,15 +314,19 @@ class ItemExtractor:
 - Successful: {self.stats['auctions_succeeded']}
 - Failed: {self.stats['auctions_failed']}
 - Skipped (Already Exist): {self.stats['auctions_skipped']}
+
+## Commodity Summary
+- Total Commodities Processed: {self.stats['commodities_processed']}
+- Successful: {self.stats['commodities_succeeded']}
+- Failed: {self.stats['commodities_failed']}
         """
 
         with open(report_path, "w") as f:
             f.write(report_content)
 
-
 async def main(item_entries: List[tuple]):
     """Main entry point with proper transaction handling
-    
+
     Args:
         item_entries: List of tuples containing (item_id, extension)
     """
@@ -304,10 +348,17 @@ async def main(item_entries: List[tuple]):
             logging.info("Processing items...")
             batch_size = 50
             for i in range(0, len(item_entries), batch_size):
-                batch = item_entries[i: i + batch_size]
+                batch = item_entries[i:i + batch_size]
                 await extractor.process_batch(batch)
                 if i + batch_size < len(item_entries):  # Don't delay after last batch
                     await asyncio.sleep(1)  # 1000ms = 1s
+
+            # Extract commodities first since they are global
+            logging.info("Extracting commodity data...")
+            commodities_success = await extractor.extract_commodities()
+            if not commodities_success:
+                logging.error("Commodities extraction failed")
+                # Continue with auctions even if commodities fail
 
             # Extract auctions for all connected realms in parallel
             logging.info("Extracting auction data...")
@@ -322,15 +373,7 @@ async def main(item_entries: List[tuple]):
             async def process_realm_with_session(realm_id: int) -> bool:
                 async with realm_semaphore:  # Limit concurrent processing
                     async with get_session() as session:  # Each realm gets its own session
-                        try:
-                            success = await extractor.extract_auctions(session, realm_id)
-                            if not success:
-                                failed_realms.append(realm_id)
-                            return success
-                        except Exception as e:
-                            logging.error(f"Error processing realm {realm_id}: {e}")
-                            failed_realms.append(realm_id)
-                            return False
+                        return await extractor.extract_auctions(session, realm_id)
 
             # Create tasks for all realms with individual sessions
             start_time = time.perf_counter()
@@ -343,12 +386,14 @@ async def main(item_entries: List[tuple]):
             # Retry failed realms
             max_retries = 3
             retry_attempt = 0
-            while failed_realms and retry_attempt < max_retries:
+            while extractor.realmIds_to_retry and retry_attempt < max_retries:
                 retry_attempt += 1
-                logging.info(f"Retry attempt {retry_attempt} for failed realms: {failed_realms}")
+                logging.info(
+                    f"Retry attempt {retry_attempt} for failed realms: {extractor.realmIds_to_retry}"
+                )
                 current_failed = []
-                
-                for realm_id in failed_realms:
+
+                for realm_id in extractor.realmIds_to_retry:
                     try:
                         realm_success = await process_realm_with_session(realm_id)
                         if not realm_success:
@@ -356,14 +401,23 @@ async def main(item_entries: List[tuple]):
                     except Exception as e:
                         logging.error(f"Error retrying realm {realm_id}: {e}")
                         current_failed.append(realm_id)
-                
-                failed_realms = current_failed
 
-            if failed_realms:
-                logging.error(f"After {max_retries} retry attempts, the following realms still failed: {failed_realms}")
+                extractor.realmIds_to_retry = current_failed
+
+            # Handle results and any exceptions
+            extractor.realmIds_to_retry = [
+                realm_id
+                for realm_id, result in zip(realm_ids, results)
+                if isinstance(result, Exception) or result is False
+            ]
+
+            if extractor.realmIds_to_retry:
+                logging.error(
+                    f"After {max_retries} retry attempts, the following realms still failed: {extractor.realmIds_to_retry}"
+                )
 
             total_realms = len(realm_ids)
-            successful_realms = total_realms - len(failed_realms)
+            successful_realms = total_realms - len(extractor.realmIds_to_retry)
             logging.info(
                 f"Completed auction extraction for {successful_realms}/{total_realms} realms "
                 f"in {processing_time:.2f} seconds"

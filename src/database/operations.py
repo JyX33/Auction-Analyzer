@@ -9,20 +9,24 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from sqlalchemy import exists, select, delete
+from sqlalchemy import delete, exists, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_upsert
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.expression import bindparam
 
 from .init_db import get_engine, get_sync_engine
-from .models import Auction, ConnectedRealm, Group, Item, ItemGroup
+from .models import Auction, Commodity, ConnectedRealm, Group, Item, ItemGroup
 
 # Batch size for auction processing
 AUCTION_BATCH_SIZE = 2000
+COMMODITY_BATCH_SIZE = 1000
+MAX_RETRIES = 3
+RETRY_DELAY = 1  # seconds
 
 logger = logging.getLogger(__name__)
+
 
 def get_db():
     """Synchronous database session for FastAPI dependency injection"""
@@ -33,6 +37,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
@@ -49,6 +54,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         finally:
             await session.close()
 
+
 async def get_item_by_id(session: AsyncSession, item_id: int) -> Optional[Item]:
     """Retrieve an item by its ID."""
     try:
@@ -57,6 +63,7 @@ async def get_item_by_id(session: AsyncSession, item_id: int) -> Optional[Item]:
     except SQLAlchemyError as e:
         logger.error(f"Failed to get item {item_id}: {str(e)}")
         raise
+
 
 async def create_item(session: AsyncSession, item_data: Dict[str, Any]) -> Item:
     """Create a new item or update if exists."""
@@ -73,6 +80,7 @@ async def create_item(session: AsyncSession, item_data: Dict[str, Any]) -> Item:
         logger.error(f"Failed to create/update item: {str(e)}")
         await session.rollback()
         raise
+
 
 async def get_items(
     session: AsyncSession,
@@ -109,12 +117,14 @@ async def get_items(
         logger.error(f"Query failed: {str(e)}")
         raise
 
+
 async def create_group(session: AsyncSession, group_name: str) -> Group:
     """Create a new group."""
     group = Group(group_name=group_name)
     session.add(group)
     await session.commit()
     return group
+
 
 async def add_item_to_group(
     session: AsyncSession, item_id: int, group_id: int
@@ -128,6 +138,7 @@ async def add_item_to_group(
     except IntegrityError:
         await session.rollback()
         return None
+
 
 async def upsert_items(session: AsyncSession, items: List[dict]):
     """Batch upsert items"""
@@ -149,10 +160,12 @@ async def upsert_items(session: AsyncSession, items: List[dict]):
     )
     await session.execute(stmt, items)
 
+
 async def item_exists(session: AsyncSession, item_id: int) -> bool:
     """Check if an item exists in the database"""
     result = await session.execute(select(exists().where(Item.item_id == item_id)))
     return result.scalar()
+
 
 async def get_connected_realm_by_id(
     session: AsyncSession, connected_realm_id: int
@@ -168,6 +181,7 @@ async def get_connected_realm_by_id(
     except SQLAlchemyError as e:
         logger.error(f"Failed to get connected realm {connected_realm_id}: {str(e)}")
         raise
+
 
 async def upsert_connected_realm(
     session: AsyncSession, realm_data: Dict[str, Any]
@@ -207,6 +221,7 @@ async def upsert_connected_realm(
         await session.rollback()
         raise
 
+
 async def get_connected_realms(
     session: AsyncSession, page: int = 1, page_size: int = 100
 ) -> List[ConnectedRealm]:
@@ -219,10 +234,12 @@ async def get_connected_realms(
         logger.error(f"Failed to get connected realms: {str(e)}")
         raise
 
+
 async def get_all_item_ids(session: AsyncSession) -> set[int]:
     """Get all item IDs from the database."""
     result = await session.execute(select(Item.item_id))
     return set(row[0] for row in result.all())
+
 
 async def connected_realm_exists(
     session: AsyncSession, connected_realm_id: int
@@ -232,6 +249,7 @@ async def connected_realm_exists(
         select(exists().where(ConnectedRealm.connected_realm_id == connected_realm_id))
     )
     return result.scalar()
+
 
 async def auction_exists(
     session: AsyncSession, auction_id: int, connected_realm_id: int
@@ -247,10 +265,12 @@ async def auction_exists(
     )
     return result.scalar()
 
+
 async def process_auction_batch(batch: List[dict]):
     """Process a batch of auctions."""
     if not batch:
         return
+
     async with get_session() as session:
         try:
             stmt = (
@@ -264,7 +284,7 @@ async def process_auction_batch(batch: List[dict]):
                         quantity=Auction.quantity,
                         time_left=Auction.time_left,
                         last_modified=Auction.last_modified,
-                        active=Auction.active
+                        active=Auction.active,
                     ),
                 )
             )
@@ -275,6 +295,7 @@ async def process_auction_batch(batch: List[dict]):
             await session.rollback()
             raise
 
+
 async def upsert_auctions(auctions: List[dict]):
     """Batch upsert auctions with optimized parallel processing."""
     if not auctions:
@@ -282,16 +303,17 @@ async def upsert_auctions(auctions: List[dict]):
 
     # Ensure all auctions have active flag set
     for auction in auctions:
-        if 'active' not in auction:
-            auction['active'] = True
+        if "active" not in auction:
+            auction["active"] = True
 
     # Process auctions in batches
     batches = [
-        auctions[i: i + AUCTION_BATCH_SIZE]
+        auctions[i:i + AUCTION_BATCH_SIZE]
         for i in range(0, len(auctions), AUCTION_BATCH_SIZE)
     ]
     logger.info(f"Processing {len(auctions)} auctions in {len(batches)} batches")
     processing_start = time.perf_counter()
+
     try:
         # Process batches in parallel with controlled concurrency
         tasks = [process_auction_batch(batch) for batch in batches]
@@ -306,6 +328,7 @@ async def upsert_auctions(auctions: List[dict]):
         f"Processed {len(auctions)} auctions in {processing_time:.2f} seconds "
         f"({len(auctions) / processing_time:.2f} auctions/second)"
     )
+
 
 async def get_auctions(
     session: AsyncSession,
@@ -330,28 +353,124 @@ async def get_auctions(
         logger.error(f"Failed to get auctions: {str(e)}")
         raise
 
+
 async def delete_old_auctions(days: int = 7) -> int:
     """Delete auctions that are older than the specified number of days.
-    
+
     Args:
         days: Number of days. Auctions older than this will be deleted.
-        
+
     Returns:
         int: Number of auctions deleted
     """
     cutoff_date = datetime.utcnow() - timedelta(days=days)
     logger.info(f"Deleting auctions older than {cutoff_date}")
-    
+
     try:
         async with get_session() as session:
             stmt = delete(Auction).where(Auction.last_modified < cutoff_date)
             result = await session.execute(stmt)
             deleted_count = result.rowcount
             await session.commit()
-            
+
             logger.info(f"Successfully deleted {deleted_count} old auctions")
             return deleted_count
-            
+
     except SQLAlchemyError as e:
         logger.error(f"Failed to delete old auctions: {str(e)}")
+        raise
+
+
+async def process_commodity_batch(batch: List[dict]):
+    """Process a batch of commodities with quantity merging for same item_id and unit_price."""
+    if not batch:
+        return
+
+    # Group commodities by item_id and unit_price, summing quantities
+    merged_commodities = {}
+    for commodity in batch:
+        key = (commodity["item_id"], commodity["unit_price"])
+        if key in merged_commodities:
+            merged_commodities[key]["quantity"] += commodity["quantity"]
+        else:
+            merged_commodities[key] = commodity
+
+    retries = 0
+    while retries < MAX_RETRIES:
+        try:
+            async with get_session() as session:
+                stmt = (
+                    sqlite_upsert(Commodity)
+                    .values(list(merged_commodities.values()))
+                    .on_conflict_do_update(
+                        index_elements=[Commodity.item_id, Commodity.unit_price],
+                        set_=dict(
+                            quantity=Commodity.quantity,
+                            last_modified=Commodity.last_modified,
+                        ),
+                    )
+                )
+                await session.execute(stmt)
+                await session.commit()
+                break  # Success, exit retry loop
+        except OperationalError as e:
+            if "database is locked" in str(e) and retries < MAX_RETRIES - 1:
+                retries += 1
+                logger.warning(
+                    f"Database locked, retrying in {RETRY_DELAY} seconds (attempt {retries}/{MAX_RETRIES})"
+                )
+                await asyncio.sleep(RETRY_DELAY)
+            else:
+                logger.error(f"Failed to upsert commodity batch after {MAX_RETRIES} attempts: {str(e)}")
+                raise
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to upsert commodity batch: {str(e)}")
+            raise
+
+
+async def upsert_commodities(commodities: List[dict]):
+    """Batch upsert commodities with quantity merging."""
+    if not commodities:
+        return
+
+    # Process commodities in batches
+    batches = [
+        commodities[i:i + COMMODITY_BATCH_SIZE]
+        for i in range(0, len(commodities), COMMODITY_BATCH_SIZE)
+    ]
+    logger.info(f"Processing {len(commodities)} commodities in {len(batches)} batches")
+    processing_start = time.perf_counter()
+
+    try:
+        tasks = [process_commodity_batch(batch) for batch in batches]
+        await asyncio.gather(*tasks)
+    except Exception as e:
+        logger.error(f"Failed to process commodity batches: {str(e)}")
+        raise
+
+    processing_time = time.perf_counter() - processing_start
+    logger.info(
+        f"Processed {len(commodities)} commodities in {processing_time:.2f} seconds "
+        f"({len(commodities) / processing_time:.2f} commodities/second)"
+    )
+
+
+async def delete_all_commodities() -> int:
+    """Delete all commodities from the database.
+
+    Returns:
+        int: Number of commodities deleted
+    """
+    try:
+        async with get_session() as session:
+            stmt = delete(Commodity)
+            result = await session.execute(stmt)
+            deleted_count = result.rowcount
+            await session.commit()
+
+            logger.info(f"Successfully deleted {deleted_count} commodities")
+            return deleted_count
+
+    except SQLAlchemyError as e:
+        logger.error(f"Failed to delete commodities: {str(e)}")
         raise

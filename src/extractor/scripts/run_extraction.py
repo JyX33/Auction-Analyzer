@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 
 from src.database.init_db import initialize_database
-from src.database.operations import delete_old_auctions
+from src.database.operations import delete_old_auctions, delete_all_commodities
 from src.extractor.main import main as run_extraction
 
 # Configure logging
@@ -66,6 +66,14 @@ async def extraction_wrapper():
         logger.info(f"Cleaned up {deleted_count} old auctions")
     except Exception as e:
         logger.error(f"Failed to delete old auctions: {str(e)}")
+        # Continue with extraction even if cleanup fails
+
+    # Delete all commodities before new extraction
+    try:
+        deleted_count = await delete_all_commodities()
+        logger.info(f"Cleaned up {deleted_count} old commodities")
+    except Exception as e:
+        logger.error(f"Failed to delete old commodities: {str(e)}")
         # Continue with extraction even if cleanup fails
 
     # Read items with extensions

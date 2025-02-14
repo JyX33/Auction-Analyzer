@@ -80,6 +80,7 @@ export const selectedRealmsAtom = atom(
   (get) => {
     const realms = get(realmsAtom);
     const selectedIds = get(selectedRealmIdsAtom);
+    console.log("selectedIds", selectedIds);
     return realms.filter(realm => selectedIds.includes(realm.id));
   }
 );

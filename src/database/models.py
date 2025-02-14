@@ -75,3 +75,19 @@ class Auction(Base):
 
     connected_realm = relationship('ConnectedRealm', back_populates='auctions')
     item = relationship('Item', backref='auctions')
+
+class Commodity(Base):
+    """Model representing commodity auctions from the WoW API."""
+    __tablename__ = 'commodities'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    item_id = Column(Integer, ForeignKey('items.item_id'), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(Integer, nullable=False)
+    last_modified = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('item_id', 'unit_price', name='idx_item_unit_price'),
+    )
+
+    item = relationship('Item', backref='commodities')

@@ -307,8 +307,6 @@ async def get_realms(
         )
         for r in realms_data
     ]
-
-    print(f"Found {len(result)} realms")
     return result
 
 
@@ -548,13 +546,15 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
                 # Sort prices for median calculation
                 sorted_prices = sorted(prices_per_unit)
                 n = len(sorted_prices)
-                
+
                 # Calculate median price (robust central tendency)
                 if n % 2 == 0:
-                    median_price = (sorted_prices[n // 2 - 1] + sorted_prices[n // 2]) / 2
+                    median_price = (
+                        sorted_prices[n // 2 - 1] + sorted_prices[n // 2]
+                    ) / 2
                 else:
                     median_price = sorted_prices[n // 2]
-                    
+
                 # Calculate trimmed mean (excluding top and bottom 10%)
                 trim_size = int(n * 0.1)  # 10% trim
                 if n > 10:  # Only apply trimming if we have enough data points
@@ -562,36 +562,49 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
                     trimmed_mean = sum(trimmed_prices) / len(trimmed_prices)
                 else:
                     trimmed_mean = median_price  # Fall back to median for small samples
-                    
+
                 # Use the more conservative of median and trimmed mean
                 robust_price = min(median_price, trimmed_mean)
-                
+
                 # Calculate effective supply (auctions within ±20% of robust price)
                 price_threshold = robust_price * 0.2  # 20% threshold
                 effective_quantity = sum(
-                    quantity for price, quantity in zip(prices_per_unit, quantities)
+                    quantity
+                    for price, quantity in zip(prices_per_unit, quantities)
                     if abs(price - robust_price) <= price_threshold
                 )
-                
+
                 # Fall back to total quantity if effective quantity is too small
                 total_quantity = sum(quantities)
-                if effective_quantity < total_quantity * 0.2:  # If less than 20% of total
+                if (
+                    effective_quantity < total_quantity * 0.2
+                ):  # If less than 20% of total
                     effective_quantity = total_quantity
 
                 # Calculate market quality factor using population and logs data
                 # Use geometric mean approach for balanced consideration of both factors
                 # Add 1 to logs to avoid zero in case logs data is missing
-                market_quality = (realm.population or 0) * (realm.logs + 1 if realm.logs else 1)
-                
+                market_quality = (realm.population or 0) * (
+                    realm.logs + 1 if realm.logs else 1
+                )
+
                 # Calculate item rating using robust price, effective supply, and market quality
-                item_rating = ((robust_price / (effective_quantity + EPSILON)) * math.sqrt(market_quality) / 10000000)
+                item_rating = (
+                    (robust_price / (effective_quantity + EPSILON))
+                    * math.sqrt(market_quality)
+                    / 10000000
+                )
 
                 # Calculate stats for item details
                 lowest_price = min(prices_per_unit) if prices_per_unit else 0
                 highest_price = max(prices_per_unit) if prices_per_unit else 0
                 # Calculate average of lowest 5 prices (or all if less than 5)
                 sorted_prices = sorted(prices_per_unit)
-                lowest_five_avg = sum(sorted_prices[:5]) / min(5, len(sorted_prices)) if sorted_prices else 0
+                lowest_five_avg = (
+                    sum(sorted_prices[:5]) / min(5, len(sorted_prices))
+                    if sorted_prices
+                    else 0
+                )
 
                 item_details.append(
                     ItemPriceDetails(
@@ -599,7 +612,7 @@ async def compare_realms(request: ComparisonRequest, db: Session = Depends(get_d
                         item_name=item.item_name,
                         lowest_price=lowest_price,
                         highest_price=highest_price,
-                        quantity=total_quantity,  
+                        quantity=total_quantity,
                         average_lowest_five=lowest_five_avg,
                         rating=item_rating,
                     )
