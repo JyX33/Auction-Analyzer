@@ -4,7 +4,7 @@ SQLAlchemy models for database entities.
 
 from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Text, ForeignKey, String, DateTime, Boolean, UniqueConstraint
+from sqlalchemy import Column, Integer, Text, ForeignKey, String, DateTime, Boolean, UniqueConstraint, Float
 from sqlalchemy.orm import relationship
 
 Base = declarative_base()
@@ -21,6 +21,7 @@ class Item(Base):
     display_subclass_name = Column(Text)
     item_name = Column(Text)
     extension = Column(Text, nullable=True)
+    raw_craft_cost = Column(Float, nullable=True)
     
     groups = relationship('Group', secondary='item_groups', back_populates='items')
 
