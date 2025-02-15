@@ -6,3 +6,5 @@ items.db
 .vscode
 **/output/*
 items.txt
+items.db-wal
+items.db-shm
