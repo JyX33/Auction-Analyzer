@@ -23,6 +23,7 @@ class Item(Base):
     extension = Column(Text, nullable=True)
     raw_craft_cost = Column(Float, nullable=True)
     recipe_id = Column(Integer, nullable=True)
+    spell_id = Column(Integer, nullable=True)
     
     groups = relationship('Group', secondary='item_groups', back_populates='items')
 
