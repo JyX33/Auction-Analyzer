@@ -1,8 +1,8 @@
-import { useAtom } from "jotai";
-import { ArrowUp, ArrowDown, Trophy, Users } from "lucide-react";
-import { realmComparisonAtom, itemsAtom, selectedRealmsAtom } from "@/lib/store";
 import { WowMoneyIcon } from "@/components/ui/wow-money-icon";
+import { itemsAtom, realmComparisonAtom, selectedRealmsAtom } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { useAtom } from "jotai";
+import { ArrowDown, ArrowUp, Trophy, Users } from "lucide-react";
 
 interface PriceRankingCardProps {
   itemId: number;
@@ -112,17 +112,26 @@ export function PriceRankingCard({ itemId }: PriceRankingCardProps) {
       population?: string;
     }[];
 
-  // Sort descending by average_lowest_five (highest first) and take the top 10
+  // Filter realms where price > raw_craft_cost and sort by price
   const sortedRealms = realmsForItem
+    .filter(entry => item?.raw_craft_cost ? entry.itemDetail.average_lowest_five > item.raw_craft_cost : true)
     .sort((a, b) => b.itemDetail.average_lowest_five - a.itemDetail.average_lowest_five)
     .slice(0, 10);
 
   return (
     <div className="relative rounded-lg p-4 shadow-md bg-gradient-to-br from-white to-gray-50 border transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
-      <div className="flex items-center gap-1.5 mb-2">
-        <h3 className="text-lg font-bold text-gray-900 truncate">{item ? item.item_name : `Item ${itemId}`}</h3>
-        {sortedRealms.length > 0 && (
-          <Trophy className="w-5 h-5 text-amber-500" aria-label="Price Rankings" />
+      <div className="flex flex-col gap-2 mb-4">
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-lg font-bold text-gray-900 truncate">{item ? item.item_name : `Item ${itemId}`}</h3>
+          {sortedRealms.length > 0 && (
+            <Trophy className="w-5 h-5 text-amber-500" aria-label="Price Rankings" />
+          )}
+        </div>
+        {item?.raw_craft_cost && (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span>Craft Cost:</span>
+            <FormattedMoney copper={item.raw_craft_cost} />
+          </div>
         )}
       </div>
       

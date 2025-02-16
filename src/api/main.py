@@ -73,7 +73,8 @@ class PriceRequestParams(BaseModel):
 
 class ItemBase(BaseModel):
     item_id: int
-    item_name: str
+    item_name: str    
+    raw_craft_cost: Optional[float] = None
     item_class_name: str
     item_subclass_name: str
     model_config = {"from_attributes": True}

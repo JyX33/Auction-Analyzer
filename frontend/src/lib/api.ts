@@ -5,6 +5,7 @@ export interface ItemBase {
   item_name: string;
   item_class_name: string;
   item_subclass_name: string;
+  raw_craft_cost?: number;
 }
 
 export interface ItemDetail extends ItemBase {
@@ -108,12 +109,14 @@ class APIClient {
     page_size?: number;
     item_class_name?: string;
     item_subclass_name?: string;
+    raw_craft_cost?: number;
   } = {}): Promise<ItemListResponse> {
     const searchParams = new URLSearchParams();
     if (params.page) searchParams.append('page', params.page.toString());
     if (params.page_size) searchParams.append('page_size', params.page_size.toString());
     if (params.item_class_name) searchParams.append('item_class_name', params.item_class_name);
     if (params.item_subclass_name) searchParams.append('item_subclass_name', params.item_subclass_name);
+    if (params.raw_craft_cost) searchParams.append('raw_craft_cost', params.raw_craft_cost.toString());
 
     return this.fetchWithError<ItemListResponse>(`/items?${searchParams.toString()}`);
   }
