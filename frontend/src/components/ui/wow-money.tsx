@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import { WowMoneyIcon } from './wow-money-icon';
 
 interface WowMoneyProps {
@@ -9,12 +10,10 @@ interface WowMoneyProps {
   iconSize?: number;
 }
 
-export function WowMoney({ copper, showIcons = true, className = '', iconSize = 14 }: WowMoneyProps) {
+export function WowMoney({ copper, showIcons = true, className = ''}: WowMoneyProps) {
   const gold = Math.floor(copper / 10000);
   const silver = Math.floor((copper % 10000) / 100);
   const remainingCopper = copper % 100;
-
-  const iconStyles = { width: `${iconSize}px`, height: `${iconSize}px` };
 
   return (
     <div className={cn("inline-flex items-center gap-1.5 font-semibold", className)}>

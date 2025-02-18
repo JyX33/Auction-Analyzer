@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useAtom } from "jotai";
 import { useEffect, useState } from "react";
 import {
@@ -19,15 +20,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const ALL_LANGUAGES = ['English', 'French', 'German', 'Spanish', 'Portuguese', 'Italian', 'Russian'];
-
 interface RealmSelectProps {
   compact?: boolean;
 }
 
 export function RealmSelect({ compact }: RealmSelectProps) {
   const [selectedRealmIds, setSelectedRealmIds] = useAtom(selectedRealmIdsAtom);
-  const [selectedLanguages, setSelectedLanguages] = useAtom(selectedLanguagesAtom);
+  const [selectedLanguages] = useAtom(selectedLanguagesAtom);
   const [realmsByLanguage] = useAtom(realmsByLanguageAtom);
   const [isLoading] = useAtom(isLoadingAtom);
   const [, fetchRealms] = useAtom(fetchRealmsAtom);

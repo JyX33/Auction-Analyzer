@@ -3,3 +3,20 @@ Name: auction-analyzer
 Version: 0.1.0
 Summary: Auction Analyzer for World of Warcraft
 Requires-Python: >=3.8
+Requires-Dist: fastapi>=0.109.0
+Requires-Dist: uvicorn>=0.27.0
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: alembic>=1.13.0
+Requires-Dist: httpx>=0.26.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: asyncio>=3.4.3
+Requires-Dist: aiohttp>=3.9.0
+Requires-Dist: pandas>=2.2.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: black>=24.0.0; extra == "dev"
+Requires-Dist: isort>=5.13.0; extra == "dev"
+Requires-Dist: mypy>=1.8.0; extra == "dev"
+Requires-Dist: ruff>=0.2.0; extra == "dev"
