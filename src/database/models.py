@@ -3,8 +3,19 @@ SQLAlchemy models for database entities.
 """
 
 from datetime import datetime
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Text, ForeignKey, String, DateTime, Boolean, UniqueConstraint, Float
 from sqlalchemy.orm import relationship
 
 Base = declarative_base()
